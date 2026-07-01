@@ -83,7 +83,7 @@ function positionedFly(element: HTMLElement) {
 		duration: 150,
 		easing: cubicInOut,
 		css: (t: number, u: number) => {
-			return `transform: translate(0, ${-10 * u}px) scaleY(${1 - u * .5}); opacity: ${.9 * t};`
+			return `transform: translate(0, ${-10 * u}px); opacity: ${.9 * t};`
 		}
 	}
 }
