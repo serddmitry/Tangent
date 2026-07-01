@@ -1534,7 +1534,14 @@ main {
 	}
 
 	&.editable {
-		cursor: text;
+		// Intentionally NOT `cursor: text` here. A `contenteditable` region
+		// already paints the text I-beam over its editable text natively. Forcing
+		// `cursor: text` on this container makes Chromium keep painting the I-beam
+		// over editable inline children (links) too, ignoring their `cursor: pointer`
+		// until something forces a recalc (e.g. pressing a modifier key). Leaving the
+		// container cursor as `auto` lets links show the hand cursor at rest while
+		// text still shows the I-beam.
+		cursor: auto;
 	}
 
 	&.fixedTitle {

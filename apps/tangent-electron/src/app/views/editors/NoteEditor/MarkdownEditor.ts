@@ -152,7 +152,7 @@ export default class MarkdownEditor extends Editor {
 				history: newHistory,
 
 				tLink: editor => tlinkModule(editor, {
-					linkFollowRequirement: workspace?.settings?.noteLinkFollowBehavior as any ?? 'mod'
+					linkFollowRequirement: workspace?.settings?.noteLinkFollowBehavior as any ?? 'none'
 				}),
 				tCheckbox: editor => tCheckboxModule(editor, { 
 					defaultTodoCompleteChar: workspace?.settings?.defaultTodoCompleteChar as any ?? 'x'

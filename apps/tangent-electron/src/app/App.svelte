@@ -63,14 +63,14 @@ $: {
 
 $: linkCursor = workspace?.settings.linkCursor
 $: {
-	const linkCursorMode = (linkCursor != null && $linkCursor) ?? 'directional'
+	const linkCursorMode = (linkCursor != null && $linkCursor) ?? 'pointer'
 	document.body.classList.remove('link-cursor-arrow', 'link-cursor-pointer', 'link-cursor-directional')
 	document.body.classList.add('link-cursor-' + linkCursorMode)
 }
 
 $: noteLinkFollowBehavior = workspace?.settings.noteLinkFollowBehavior
 $: {
-	const behavior = (noteLinkFollowBehavior != null) ? $noteLinkFollowBehavior : 'mod'
+	const behavior = (noteLinkFollowBehavior != null) ? $noteLinkFollowBehavior : 'none'
 	document.body.classList.remove('note-link-click-mod')
 	document.body.classList.remove('note-link-click-none')
 

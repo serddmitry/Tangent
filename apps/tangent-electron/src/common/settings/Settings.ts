@@ -31,7 +31,6 @@ if (isMac) {
 		displayName: 'Directional Arrows',
 		description: 'The mouse cursor points in the direction the link will open in.'
 	})
-	linkCursorDefinition.defaultValue = 'directional'
 }
 
 class KeymapSettings extends PatchableMap<string, string[], string[]> {
@@ -253,7 +252,7 @@ export default class Settings extends ObjectStore {
 					: 'Ctrl clicking on a link follows the link.'
 			}
 		],
-		defaultValue: 'mod'
+		defaultValue: 'none'
 	})
 
 	// Map

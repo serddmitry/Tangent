@@ -40,7 +40,7 @@ export default function tlinkModule(editor: Editor, options?: {
 	linkFollowRequirement?: LinkFollowType | ReadableStore<LinkFollowType>
 }) {
 
-	const linkFollowType = options?.linkFollowRequirement ?? 'mod'
+	const linkFollowType = options?.linkFollowRequirement ?? 'none'
 
 	function isLinkFollowingEvent(event: MouseEvent) {
 		if (TangentLink.isNavigationLinkOverride(event)) return true
