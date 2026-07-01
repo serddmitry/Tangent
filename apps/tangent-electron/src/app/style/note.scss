@@ -712,6 +712,14 @@ t-link {
 		color: var(--untrackedLinkColor);
 	}
 
+	// Highlights links to notes already open in the current thread, à la
+	// Andy Matuschak's notes. Soft, desaturated pastel green with low alpha so
+	// it reads gently over both light and dark backgrounds.
+	&[data-open] {
+		background-color: rgba(140, 190, 140, 0.22);
+		border-radius: 3px;
+	}
+
 	.link_internal {
 		//text-decoration: underline;
 		&:not(.start):not(.end) {
