@@ -39,18 +39,21 @@
 	--accentTextColor: hsl(var(--accentHue), var(--accentSaturation), 35%);
 	--deemphasizedAccentTextColor: hsl(var(--accentHue), var(--accentSaturation), 25%);
 
+	/* Desaturated, pastel take on the accent color for "active/selected" fills
+	   (menu items, file tree selection, text selection, etc). The vibrant
+	   accent color reads better as text/buttons than as a flooded background. */
 	--accentBackgroundColor: hsl(
 		var(--accentHue),
-		var(--accentSaturation),
-		var(--accentLightness));
+		calc(var(--accentSaturation) * .5),
+		75%);
 	--accentDeemphasizedBackgroundColor: hsla(
 		var(--accentHue),
-		var(--accentSaturation),
-		var(--accentLightness), .3);
+		calc(var(--accentSaturation) * .5),
+		75%, .3);
 	--accentActiveBackgroundColor: hsl(
 		var(--accentHue),
-		var(--accentSaturation),
-		48%);
+		calc(var(--accentSaturation) * .5),
+		65%);
 
 	--accentLastThreadColor: hsl(
 		calc(var(--accentHue) + 60),
