@@ -86,6 +86,10 @@ const supportDirty = derived([tangent.focusLevel, states, dirtyIndicatorVisibili
 })
 
 $: currentStateIndex = $states.indexOf($currentState)
+$: if ($states) {
+	// Pane count/order changed; wait for the DOM to reflect it before re-measuring
+	tick().then(updateCoverage)
+}
 
 let container: HTMLElement
 let scrollStopper: () => void = null
@@ -100,6 +104,34 @@ function onContainerResized(entries: ResizeObserverEntry[]) {
 			260 // A fallback "true minimum"
 		)
 	}
+	updateCoverage()
+}
+
+// A pane is "covered" when a later pane is sticking over part of it, in which
+// case it can only show its collapsed vertical spine, not its full title.
+// This is purely a function of live layout (panes never shrink; later
+// siblings just paint over earlier ones), so it has to be measured rather
+// than derived from state count alone.
+let coveredIndices = new Set<number>()
+function updateCoverage() {
+	if (!container) return
+
+	const children = Array.from(container.children).filter(
+		c => c instanceof HTMLElement && c.classList.contains('nodeContainer')
+	) as HTMLElement[]
+
+	const next = new Set<number>()
+	for (let i = 0; i < children.length - 1; i++) {
+		const rect = children[i].getBoundingClientRect()
+		const nextRect = children[i + 1].getBoundingClientRect()
+		// Small tolerance for subpixel rounding so perfectly-adjacent panes
+		// don't flicker into "covered"
+		if (nextRect.left < rect.right - 1) {
+			next.add(i)
+		}
+	}
+
+	coveredIndices = next
 }
 
 
@@ -138,9 +170,10 @@ function scrollToCurrent(state: NodeViewState, _c?, minWidth = trueMinWidth) {
 		scrollStopper = scrollTo({
 			container,
 			duration: isFirstView ? 0 : 300,
-			x, 
+			x,
 			onDone: () => {
 				scrollStopper = null
+				updateCoverage()
 			}
 		})
 
@@ -196,8 +229,10 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 
 <main bind:this={container}
 	use:resizeObserver={onContainerResized}
+	on:scroll={updateCoverage}
 	class="ThreadView"
-	class:multiple={$states.length > 1}>
+	class:multiple={$states.length > 1}
+	class:threadFixedWidth={$focusLevel <= FocusLevel.Thread}>
 	{#each $states as state, index (state)}
 		{@const isCurrent = state === $currentState}
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -205,6 +240,7 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 		<div class="nodeContainer"
 			style={getNodeContainerStyle($states.length, index, trueMinWidth)}
 			class:current={isCurrent}
+			class:covered={coveredIndices.has(index)}
 			on:click={e => onNodeContainerClicked(e, state)}
 			on:wheel={e => onWheel(e, state)}
 			in:fly|global={{
@@ -213,7 +249,7 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 			}}
 			animate:flip={{ duration: 200 }}>
 			<div class="viewContainer"
-				style={`left: ${$states.length > 1 ? collapsedWidth : 0}px;`}>
+				style={`left: ${($focusLevel <= FocusLevel.Thread || $states.length > 1) ? collapsedWidth : 0}px;`}>
 				<NodeViewSelector
 					{state}
 					{isCurrent}
@@ -285,6 +321,15 @@ main {
 	&:not(:first-child) {
 		box-shadow: 0 0 5px rgba(0, 0, 0, .3);
 	}
+}
+
+// In thread view, hold every pane (including a lone one) at the panel width
+// instead of letting a single pane flex-grow to fill the whole container.
+// Otherwise the first note reflows from a wide, centered column to a narrow
+// one the moment a second pane opens. Focus mode (File+) is left untouched so
+// a focused single note can still fill the view.
+main.threadFixedWidth .nodeContainer {
+	flex-grow: 0;
 }
 
 .viewContainer {

@@ -108,6 +108,10 @@ const {
 		display: none;
 	}
 
+	// Keep the spine strip present whenever the pane is part of a multi-pane
+	// thread, so its close / close-left / close-right buttons stay reachable.
+	// The close button shows faintly at rest; hovering the strip reveals all
+	// three controls.
 	:global(.multiple) & {
 		display: block;
 		background-color: var(--noteBackgroundColor);
@@ -122,7 +126,16 @@ const {
 			}
 		}
 
-		&:hover button, .name {
+		&:hover button {
+			opacity: 1;
+		}
+	}
+
+	// Only reveal the rotated title text once the pane is actually covered by a
+	// later one (i.e. there's no room for its own top title), à la Andy
+	// Matuschak's notes — not just whenever multiple panes happen to be open.
+	:global(.covered) & {
+		.name {
 			display: inline;
 			opacity: 1;
 		}
