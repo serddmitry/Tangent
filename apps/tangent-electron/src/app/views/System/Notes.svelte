@@ -85,6 +85,7 @@ async function getSpellCheckLanguages() {
 		<SettingView setting={settings.linkClickPaneBehavior} />
 		<SettingView setting={settings.rawLinksAutoEmbed} />
 		<SettingView setting={settings.collapseEmbedLinkLines} />
+		<SettingView setting={settings.showInlineBacklinks} />
 	</div>
 
 	<h2>Code</h2>

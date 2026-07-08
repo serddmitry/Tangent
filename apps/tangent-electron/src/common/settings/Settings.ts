@@ -548,6 +548,12 @@ export default class Settings extends ObjectStore {
 		defaultValue: true
 	})
 
+	showInlineBacklinks = new Setting<boolean>({
+		name: 'Show Inline Backlinks',
+		description: 'When enabled, a note\'s incoming links are listed inline at the bottom of the note (muted, but readable), instead of only in the collapsible details bar.',
+		defaultValue: false
+	})
+
 	// Writing
 	italicsCharacters = new Setting<string>({
 		name: 'Default Italics Characters',

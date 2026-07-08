@@ -33,6 +33,7 @@ import { areLineArraysOpTextEquivalent, type EditInfo, getEditInfo, getRangeWhil
 import { scrollTo } from 'app/utils';
 import { getLinkDirectionFromEvent, type KeyboardExitCallback, type NavigationCallback, type NavigationData, type ViewReadyCallback } from 'app/events'
 import WorkspaceFileHeader from 'app/utils/WorkspaceFileHeader.svelte';
+import InlineBacklinks from 'app/views/node-views/InlineBacklinks.svelte';
 import { TangentLink } from './t-link';
 import { appendContextTemplate, type ContextMenuConstructorOptions } from 'app/model/menus';
 import { getInitialSelection } from 'common/markdownModel';
@@ -79,7 +80,8 @@ const {
 	smartParagraphBreaks,
 	fixedTitle: fixedTitleSetting,
 	letCodeExpand,
-	contentSpellCheck
+	contentSpellCheck,
+	showInlineBacklinks
 } = workspace.settings
 
 const editor = new MarkdownEditor(workspace)
@@ -1469,6 +1471,9 @@ function updateCodeBlockSizing(pre: HTMLElement, context: CodeBlockSizingContext
 				<br/>Click to add content.
 			{/if}
 		</div>
+	{/if}
+	{#if $showInlineBacklinks && !virtual}
+		<InlineBacklinks node={$note} {onNavigate} />
 	{/if}
 	<div style={`height: ${effectiveExtraBottom}px;`}></div>
 	<AutoCompleteMenu {editor} offset={4} let:handler>
