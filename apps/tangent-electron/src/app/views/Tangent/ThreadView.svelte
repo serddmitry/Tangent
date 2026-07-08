@@ -337,19 +337,21 @@ main {
 	// light bar sitting over the note footers. The transparent border + padding-box
 	// clip give the thumb some breathing room so it reads as a thin pill.
 	&::-webkit-scrollbar {
-		height: 10px;
+		height: 14px;
 	}
 	&::-webkit-scrollbar-track {
 		background-color: transparent;
 	}
 	&::-webkit-scrollbar-thumb {
-		background-color: var(--scrollbarColor);
-		border-radius: 5px;
+		// A mid-grey at moderate alpha reads clearly on both the dark and light
+		// note backgrounds without the faintness of the theme's --scrollbarColor.
+		background-color: rgba(140, 140, 140, .6);
+		border-radius: 7px;
 		border: 3px solid var(--noteBackgroundColor);
 		background-clip: padding-box;
 
-		&:hover { background-color: var(--scrollbarHoverColor); }
-		&:active { background-color: var(--scrollbarActiveColor); }
+		&:hover { background-color: rgba(140, 140, 140, .8); }
+		&:active { background-color: rgba(140, 140, 140, .95); }
 	}
 
 	// While a pane is sliding in and the thread doesn't yet overflow, clip instead
