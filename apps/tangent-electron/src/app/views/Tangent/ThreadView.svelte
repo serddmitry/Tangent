@@ -91,6 +91,30 @@ $: if ($states) {
 	tick().then(updateCoverage)
 }
 
+// Only slide a new pane in from the right when it's genuinely *appended* to the
+// end of the thread (i.e. you followed a link from the last pane). When a link is
+// followed from an earlier pane, the panes after it are replaced in place — a
+// slide-in there just reads as jank, so it should appear without animating.
+let prevStates: NodeViewState[] = null
+let animateIn = false
+let clipDuringFly = false
+$: {
+	const cur = $states
+	const isAppend = prevStates !== null
+		&& cur.length > prevStates.length
+		&& prevStates.every((s, i) => cur[i] === s)
+	animateIn = isAppend
+	// A slide-in briefly translates the new pane past the container's right edge.
+	// If the thread doesn't already overflow, that transient overflow would flash a
+	// horizontal scrollbar and bounce every pane's height. Clip the overflow for the
+	// duration of the slide in that case. If it already overflows, the scrollbar is
+	// present and stable, so leave it alone (clipping would just make it blink).
+	if (isAppend && container) {
+		clipDuringFly = container.scrollWidth <= container.clientWidth + 1
+	}
+	prevStates = cur
+}
+
 let container: HTMLElement
 let scrollStopper: () => void = null
 
@@ -232,7 +256,8 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 	on:scroll={updateCoverage}
 	class="ThreadView"
 	class:multiple={$states.length > 1}
-	class:threadFixedWidth={$focusLevel <= FocusLevel.Thread}>
+	class:threadFixedWidth={$focusLevel <= FocusLevel.Thread}
+	class:clippingFly={clipDuringFly}>
 	{#each $states as state, index (state)}
 		{@const isCurrent = state === $currentState}
 		<!-- svelte-ignore a11y-click-events-have-key-events -->
@@ -244,9 +269,10 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 			on:click={e => onNodeContainerClicked(e, state)}
 			on:wheel={e => onWheel(e, state)}
 			in:fly|global={{
-				x: currentStateIndex > index ? -500 : 500, 
-				duration: $states.length > 1 ? 200 : 0 
+				x: currentStateIndex > index ? -500 : 500,
+				duration: (animateIn && $states.length > 1) ? 200 : 0
 			}}
+			on:introend={() => clipDuringFly = false}
 			animate:flip={{ duration: 200 }}>
 			<div class="viewContainer"
 				style={`left: ${($focusLevel <= FocusLevel.Thread || $states.length > 1) ? collapsedWidth : 0}px;`}>
@@ -306,6 +332,14 @@ main {
 	overflow-y: hidden;
 
 	background: var(--noteBackgroundColor);
+
+	// While a pane is sliding in and the thread doesn't yet overflow, clip instead
+	// of scrolling so the transient transform-overflow can't flash a horizontal
+	// scrollbar and bounce the panes' height. Genuine overflow (panes wider than
+	// the viewport) keeps the normal auto scrollbar.
+	&.clippingFly {
+		overflow-x: hidden;
+	}
 }
 
 .nodeContainer {
