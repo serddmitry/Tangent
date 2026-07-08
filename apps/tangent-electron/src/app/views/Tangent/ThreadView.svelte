@@ -333,6 +333,25 @@ main {
 
 	background: var(--noteBackgroundColor);
 
+	// Slim, subtle horizontal scrollbar — the native macOS one renders as a chunky
+	// light bar sitting over the note footers. The transparent border + padding-box
+	// clip give the thumb some breathing room so it reads as a thin pill.
+	&::-webkit-scrollbar {
+		height: 10px;
+	}
+	&::-webkit-scrollbar-track {
+		background-color: transparent;
+	}
+	&::-webkit-scrollbar-thumb {
+		background-color: var(--scrollbarColor);
+		border-radius: 5px;
+		border: 3px solid var(--noteBackgroundColor);
+		background-clip: padding-box;
+
+		&:hover { background-color: var(--scrollbarHoverColor); }
+		&:active { background-color: var(--scrollbarActiveColor); }
+	}
+
 	// While a pane is sliding in and the thread doesn't yet overflow, clip instead
 	// of scrolling so the transient transform-overflow can't flash a horizontal
 	// scrollbar and bounce the panes' height. Genuine overflow (panes wider than
