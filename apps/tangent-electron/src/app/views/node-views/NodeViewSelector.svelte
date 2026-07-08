@@ -124,15 +124,16 @@ function onMouseMoveContainer(event: MouseEvent) {
 	clientX -= rect.x
 	clientY -= rect.y + extraTop
 
-	const showThreshold = panelSettingsHoverHotspot.value
-	const hintThreshold = showThreshold * 2
+	const hintThreshold = panelSettingsHoverHotspot.value * 2
 
-	hintSettings = clientY < hintThreshold
+	// Surface the (clickable) hint handle near the top edge, but don't auto-open
+	// the settings/search panel just because the mouse drifted up there — it's now
+	// opened deliberately, by clicking the hint or pressing Cmd+F.
 	if (layout === 'fill') {
-		showSettingsFromMouse = clientY < showThreshold
+		hintSettings = clientY < hintThreshold
 	}
 	else {
-		showSettingsFromMouse = (rect.width - clientX) < showThreshold && clientY < showThreshold
+		hintSettings = (rect.width - clientX) < hintThreshold && clientY < hintThreshold
 	}
 }
 
@@ -281,9 +282,14 @@ function onDetailsResized(entries: ResizeObserverEntry[]) {
 
 	{#if canShowSettings}
 		{#if isCurrent && focusLevel <= FocusLevel.Thread || hintSettings}
+			<!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 			<div class="settingsHint"
 				style:top={extraTop + 'px'}
 				transition:fade={{ duration: 100 }}
+				role="button"
+				tabindex="-1"
+				title="Show note search (⌘F)"
+				on:click={() => showSettingsState?.set(true)}
 			>
 				{#if layout=='fill'}
 					<SvgIcon ref="settings-hint.svg#hint-down"
@@ -405,6 +411,8 @@ main {
 	right: 0;
 	z-index: 9;
 	text-align: center;
+
+	cursor: pointer;
 
 	background: linear-gradient();
 }
