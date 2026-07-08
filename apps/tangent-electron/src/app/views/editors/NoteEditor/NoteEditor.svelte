@@ -280,7 +280,11 @@ function updateExtraSpace(et?, eb?, fl?, ct?) {
 	if (container && layout === 'fill') {
 		const containerHeight = container.getBoundingClientRect().height
 
-		let proceduralHeight = allowOverscroll ? containerHeight - 88 : 0
+		// Only add the big overscroll spacer in typewriter/focus writing modes,
+		// where it keeps the cursor line off the very bottom of the screen. In plain
+		// thread reading/editing it just pads every note out past the viewport and
+		// shows a scrollbar even for an (almost) empty note.
+		let proceduralHeight = (allowOverscroll && focusLevel > FocusLevel.File) ? containerHeight - 88 : 0
 		effectiveExtraBottom = Math.max(extraBottom, proceduralHeight)
 		
 		if (focusLevel > FocusLevel.File) {
