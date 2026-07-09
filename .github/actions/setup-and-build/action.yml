@@ -10,6 +10,12 @@ runs:
         node-version: 22
         cache: npm
 
+    # Honor the "packageManager" field in package.json so the npm version used
+    # here matches contributors' local npm, keeping package-lock.json format stable.
+    - name: Enable Corepack
+      run: corepack enable
+      shell: bash
+
     - name: Install dependencies
       run: npm ci
       shell: bash
