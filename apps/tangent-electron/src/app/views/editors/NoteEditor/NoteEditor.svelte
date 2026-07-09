@@ -158,6 +158,10 @@ function determineSpellCheck(isCurrent: boolean, setting: 'never'|'editing'|'alw
 }
 
 $: virtual = $note.meta?.virtual
+// When inline backlinks are shown for a virtual stub, they fill the note body —
+// so suppress the absolutely-positioned "virtual / no content" placeholder that
+// would otherwise float over them.
+$: showingInlineBacklinks = $showInlineBacklinks && (($note.meta?.inLinks?.length ?? 0) > 0)
 
 $: willFixTitle = (fixedTitle ?? $fixedTitleSetting)
 
@@ -1465,7 +1469,7 @@ function updateCodeBlockSizing(pre: HTMLElement, context: CodeBlockSizingContext
 		class:focusing={$focusing}
 		spellcheck={showSpellCheck}
 	></article>
-	{#if (!editorIsFocused || !editable) && virtual}
+	{#if (!editorIsFocused || !editable) && virtual && !showingInlineBacklinks}
 		<div
 			class="noContentMessage"
 			style={'--noContentOffset: ' + (headerElement?.clientHeight + 150) + 'px;'}
