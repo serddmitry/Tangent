@@ -68,6 +68,11 @@ export function updateMermaidStyle(darkMode: boolean) {
 		theme: 'base',
 		themeVariables,
 
+		// On a parse failure mermaid otherwise injects its "Syntax error" bomb
+		// SVG into document.body, which accumulates below the app while typing an
+		// as-yet-incomplete diagram. We render our own error message instead.
+		suppressErrorRendering: true,
+
 		// Mindmap styling appears to be explicitly broken
 		themeCSS: `
 .mindmap-node {
