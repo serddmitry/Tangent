@@ -19,6 +19,57 @@ export function rangeIsCollapsed(range: EditorRange) {
 	return range[0] === range[1]
 }
 
+/**
+ * Given a collapsed caret `position`, if it sits at the boundary immediately
+ * before a link's hidden closing brackets (a contiguous run of hidden,
+ * `link_internal` ops ending in an `end: true` op — i.e. `]]` or `](url)`),
+ * return the position just *after* that run. Otherwise returns `position`
+ * unchanged.
+ *
+ * The closing brackets are rendered zero-width (`font-size: 0`) yet still occupy
+ * a DOM position at the same pixel as the end of the visible link text, so a
+ * click to the right of a rendered link lands the caret ambiguously before or
+ * after them. Snapping past them makes that consistent.
+ */
+export function snapPositionPastTrailingLinkBrackets(doc: TextDocument, position: number): number {
+	const line = doc.getLineAt(position)
+	if (!line) return position
+	const [lineStart] = doc.getLineRange(line)
+	const rel = position - lineStart
+	if (rel <= 0) return position
+
+	// Find the op boundary the caret sits on.
+	const ops = line.content.ops
+	let textIndex = 0
+	let opIndex = 0
+	for (; opIndex < ops.length; opIndex++) {
+		if (textIndex === rel) break
+		const len = Op.length(ops[opIndex])
+		if (rel < textIndex + len) return position // caret is *inside* an op; leave it
+		textIndex += len
+	}
+	if (opIndex >= ops.length) return position
+
+	// Advance across a contiguous run of hidden link-internal ops. Only commit the
+	// move if that run is a closing group (`end: true`) — this both targets exactly
+	// the trailing-bracket case and leaves the opening `[[` (start: true) untouched
+	// when clicking to a link's left.
+	let advanced = rel
+	let sawClosing = false
+	for (; opIndex < ops.length; opIndex++) {
+		const attrs = ops[opIndex].attributes
+		if (!attrs?.hidden || !attrs?.link_internal) break
+		advanced += Op.length(ops[opIndex])
+		if (attrs.end) {
+			sawClosing = true
+			break
+		}
+	}
+	if (!sawClosing || advanced === rel) return position
+
+	return lineStart + advanced
+}
+
 export function rangesAreEquivalent(a: EditorRange, b: EditorRange) {
 	if (a === b) return true
 	if (!a || !b) return false

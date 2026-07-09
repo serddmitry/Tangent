@@ -27,7 +27,7 @@ import TangentMath from './t-math' // No deletey
 import { indentMatcher } from 'common/markdownModel/matches'
 import { checkboxMatcher, getAutoChild, getDelimiterForGlyph, getGlyphForNumber, ListDefinition, ListForm, listMatcher, splitCheckboxGlyphs } from 'common/markdownModel/list'
 import type { Workspace } from 'app/model'
-import { deltaHasTextChanges, getEditInfo, getLineRangeWhile, getRangeWhile, getRangesIntersecting, getSelectedLines, intersectRanges, lineToText } from 'common/typewriterUtils'
+import { deltaHasTextChanges, getEditInfo, getLineRangeWhile, getRangeWhile, getRangesIntersecting, getSelectedLines, intersectRanges, lineToText, snapPositionPastTrailingLinkBrackets } from 'common/typewriterUtils'
 import { isLeftClick, startDrag } from 'app/utils'
 import { subscribeUntil } from 'common/stores'
 import { handleIsNode } from 'app/model/NodeHandle'
@@ -674,9 +674,26 @@ export default function editorModule(editor: Editor, options: {
 		}
 	}
 
+	// After a click, a collapsed caret can land ambiguously just *before* a link's
+	// hidden closing brackets (`]]` / `)`): those are zero-width (font-size: 0) yet
+	// still occupy a DOM position at the same pixel as the end of the visible link
+	// text, so the browser sometimes maps the click to before them and sometimes to
+	// after. Nudge such a caret to *after* the closing brackets, so clicking to the
+	// right of a link consistently lands outside it.
+	function snapCaretPastTrailingLinkBrackets() {
+		const doc = editor.doc
+		const selection = doc.selection
+		if (!selection || selection[0] !== selection[1]) return
+
+		const snapped = snapPositionPastTrailingLinkBrackets(doc, selection[0])
+		if (snapped !== selection[0]) {
+			editor.select([snapped, snapped])
+		}
+	}
+
 	function onMouseDown(event: MouseEvent) {
 		if (isLeftClick(event)) {
-			
+
 			// Pause selection reveal until mouse up
 			updateSelectionReveal = false
 
@@ -688,6 +705,7 @@ export default function editorModule(editor: Editor, options: {
 					// Timeout delay is necessary to avoid a strange bug where
 					// selection doesn't appear to update
 					setTimeout(() => {
+						snapCaretPastTrailingLinkBrackets()
 						// Resume selection reveal and force it to update
 						updateSelectionReveal = true
 						editor.modules.decorations.gatherDecorations()
