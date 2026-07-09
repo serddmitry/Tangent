@@ -1476,7 +1476,7 @@ function updateCodeBlockSizing(pre: HTMLElement, context: CodeBlockSizingContext
 			{/if}
 		</div>
 	{/if}
-	{#if $showInlineBacklinks && !virtual}
+	{#if $showInlineBacklinks}
 		<InlineBacklinks node={$note} {onNavigate} />
 	{/if}
 	<div style={`height: ${effectiveExtraBottom}px;`}></div>

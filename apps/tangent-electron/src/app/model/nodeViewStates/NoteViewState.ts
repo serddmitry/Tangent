@@ -200,9 +200,12 @@ export default class NoteViewState implements NodeViewState, LensViewState {
 
 		mode = mode ?? 'auto'
 
-		// Don't open the details if focus is already in the details pane
+		// Don't open the details if focus is already in the details pane.
+		// When inline backlinks are enabled they already surface a virtual note's
+		// incoming links inline, so don't also slide up the details backlinks panel.
 		const detailsElement = getDetailsPane(element)
-		if (this.note?.meta?.virtual && !this.details.value?.open && (!detailsElement || !detailsElement.contains(document.activeElement))) {
+		const inlineBacklinksShown = this.note?.workspace?.settings?.showInlineBacklinks?.value
+		if (!inlineBacklinksShown && this.note?.meta?.virtual && !this.details.value?.open && (!detailsElement || !detailsElement.contains(document.activeElement))) {
 			this.details.open()
 			// The system will handle selection
 			return true
