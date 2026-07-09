@@ -70,6 +70,73 @@ export function snapPositionPastTrailingLinkBrackets(doc: TextDocument, position
 	return lineStart + advanced
 }
 
+/**
+ * Given a collapsed caret `position`, if it landed inside — or at the
+ * link-text-facing inner edge of — a link's hidden bracket run (`[[` / `]]` /
+ * `](url)`), snap it out to the run's *outer* edge so the caret ends up outside
+ * the link entirely: before an opening `[[`, after a closing `]]`. Otherwise
+ * returns `position` unchanged.
+ *
+ * Unlike a click (which maps to a DOM boundary), vertical arrow navigation picks
+ * a caret by pixel x, and the zero-width (`font-size: 0`) brackets share the same
+ * x as the visible text edge — so pressing Up/Down onto a line that starts or
+ * ends with a link can drop the caret among (or just inside) the hidden brackets.
+ * Vertical nav is "move to this line", not "enter this link", so we pull the
+ * caret out to the near side of the link.
+ *
+ * The inner edge is included because the caret typically lands exactly there
+ * (e.g. after `[[`, before the visible text): the brackets are zero-width, so
+ * that position is the same pixel as the outside and equally counts as "inside
+ * the brackets" to the user.
+ */
+export function snapPositionOutOfHiddenLinkBrackets(doc: TextDocument, position: number): number {
+	const line = doc.getLineAt(position)
+	if (!line) return position
+	const [lineStart] = doc.getLineRange(line)
+	const rel = position - lineStart
+
+	const ops = line.content.ops
+	let textIndex = 0
+	let i = 0
+	while (i < ops.length) {
+		const attrs = ops[i].attributes
+		if (!attrs?.hidden || !attrs?.link_internal) {
+			textIndex += Op.length(ops[i])
+			i++
+			continue
+		}
+
+		// Consume the whole contiguous run of hidden link-bracket ops.
+		const runStart = textIndex
+		let hasOpening = false
+		let hasClosing = false
+		for (; i < ops.length; i++) {
+			const a = ops[i].attributes
+			if (!a?.hidden || !a?.link_internal) break
+			if (a.start) hasOpening = true
+			if (a.end) hasClosing = true
+			textIndex += Op.length(ops[i])
+		}
+		const runEnd = textIndex
+
+		if (hasClosing && !hasOpening) {
+			// Closing `]]`: inner edge is runStart (just after the visible text).
+			// Snap out to after the brackets.
+			if (rel >= runStart && rel < runEnd) return lineStart + runEnd
+		}
+		else if (hasOpening && !hasClosing) {
+			// Opening `[[`: inner edge is runEnd (just before the visible text).
+			// Snap out to before the brackets.
+			if (rel > runStart && rel <= runEnd) return lineStart + runStart
+		}
+		else if (rel > runStart && rel < runEnd) {
+			// Ambiguous run (both/neither): snap to the nearer edge.
+			return lineStart + (rel - runStart <= runEnd - rel ? runStart : runEnd)
+		}
+	}
+	return position
+}
+
 export function rangesAreEquivalent(a: EditorRange, b: EditorRange) {
 	if (a === b) return true
 	if (!a || !b) return false

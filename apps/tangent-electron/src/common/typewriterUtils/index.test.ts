@@ -1,6 +1,6 @@
 import { describe, test, expect, it } from 'vitest'
 
-import { getEditInfo, snapPositionPastTrailingLinkBrackets } from '.'
+import { getEditInfo, snapPositionOutOfHiddenLinkBrackets, snapPositionPastTrailingLinkBrackets } from '.'
 import { Delta } from '@typewriter/delta'
 import { Op } from '@typewriter/document'
 import { markdownToTextDocument } from '../markdownModel/parser'
@@ -120,5 +120,90 @@ describe('snapPositionPastTrailingLinkBrackets', () => {
 		// Caret just before the closing `*` — italics are not link_internal, so no snap.
 		const beforeClosing = 'Some *bold'.length
 		expect(snapPositionPastTrailingLinkBrackets(doc, beforeClosing)).toEqual(beforeClosing)
+	})
+})
+
+describe('snapPositionOutOfHiddenLinkBrackets', () => {
+	// Structure-driven: find every contiguous run of hidden link_internal ops (the
+	// `[[` opening and `]]` / `](url)` closing brackets) so tests don't hand-count.
+	function bracketRuns(doc: ReturnType<typeof markdownToTextDocument>) {
+		const ops = doc.lines[0].content.ops
+		const runs: { start: number, end: number, closing: boolean }[] = []
+		let index = 0
+		let runStart = -1
+		let closing = false
+		for (const op of ops) {
+			const a = op.attributes ?? {}
+			const isBracket = a.hidden && a.link_internal
+			if (isBracket) {
+				if (runStart < 0) { runStart = index; closing = false }
+				if (a.end) closing = true
+			}
+			else if (runStart >= 0) {
+				runs.push({ start: runStart, end: index, closing })
+				runStart = -1
+			}
+			index += Op.length(op)
+		}
+		if (runStart >= 0) runs.push({ start: runStart, end: index, closing })
+		return runs
+	}
+
+	it('snaps a caret at an opening `[[`\'s inner edge out to before the brackets', () => {
+		// The reported bug: pressing Up onto a line that starts with a link lands
+		// the caret just after `[[` (before the visible text); pull it out to before `[[`.
+		const doc = markdownToTextDocument(`[[SMART Goals]] and more`)
+		const opening = bracketRuns(doc).find(r => !r.closing)!
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, opening.end)).toEqual(opening.start)
+	})
+
+	it('snaps a caret inside an opening `[[` out to before the brackets', () => {
+		const doc = markdownToTextDocument(`Go to [[SMART Goals]]`)
+		const opening = bracketRuns(doc).find(r => !r.closing)!
+		const inside = opening.start + 1
+		expect(inside).toBeLessThan(opening.end)
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, inside)).toEqual(opening.start)
+	})
+
+	it('snaps a caret inside a wiki link\'s `]]` out to after the brackets', () => {
+		const doc = markdownToTextDocument(`Go to [[SMART Goals]]`)
+		const closing = bracketRuns(doc).find(r => r.closing)!
+		const inside = closing.start + 1
+		expect(inside).toBeLessThan(closing.end)
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, inside)).toEqual(closing.end)
+	})
+
+	it('snaps a caret at a closing `]]`\'s inner edge out to after the brackets', () => {
+		const doc = markdownToTextDocument(`Go to [[SMART Goals]] today`)
+		const closing = bracketRuns(doc).find(r => r.closing)!
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, closing.start)).toEqual(closing.end)
+	})
+
+	it('snaps a caret inside a markdown link\'s closing brackets out past them', () => {
+		const doc = markdownToTextDocument(`See [Goals](http://example.com) here`)
+		const closing = bracketRuns(doc).find(r => r.closing)!
+		const inside = closing.start + 1
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, inside)).toEqual(closing.end)
+	})
+
+	it('leaves a caret at a bracket-run outer edge untouched', () => {
+		const doc = markdownToTextDocument(`Go to [[SMART Goals]]`)
+		const opening = bracketRuns(doc).find(r => !r.closing)!
+		const closing = bracketRuns(doc).find(r => r.closing)!
+		// Outer edge of opening = before `[[`; outer edge of closing = after `]]`.
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, opening.start)).toEqual(opening.start)
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, closing.end)).toEqual(closing.end)
+	})
+
+	it('leaves a caret in the visible link text untouched', () => {
+		const doc = markdownToTextDocument(`Go to [[SMART Goals]]`)
+		const inside = 'Go to [[SMART'.length
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, inside)).toEqual(inside)
+	})
+
+	it('does not touch a caret inside a non-link hidden group (italics)', () => {
+		const doc = markdownToTextDocument(`Some *bold* text`)
+		const inside = 'Some *bold'.length
+		expect(snapPositionOutOfHiddenLinkBrackets(doc, inside)).toEqual(inside)
 	})
 })

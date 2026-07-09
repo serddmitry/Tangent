@@ -27,7 +27,7 @@ import TangentMath from './t-math' // No deletey
 import { indentMatcher } from 'common/markdownModel/matches'
 import { checkboxMatcher, getAutoChild, getDelimiterForGlyph, getGlyphForNumber, ListDefinition, ListForm, listMatcher, splitCheckboxGlyphs } from 'common/markdownModel/list'
 import type { Workspace } from 'app/model'
-import { deltaHasTextChanges, getEditInfo, getLineRangeWhile, getRangeWhile, getRangesIntersecting, getSelectedLines, intersectRanges, lineToText, snapPositionPastTrailingLinkBrackets } from 'common/typewriterUtils'
+import { deltaHasTextChanges, getEditInfo, getLineRangeWhile, getRangeWhile, getRangesIntersecting, getSelectedLines, intersectRanges, lineToText, snapPositionOutOfHiddenLinkBrackets, snapPositionPastTrailingLinkBrackets } from 'common/typewriterUtils'
 import { isLeftClick, startDrag } from 'app/utils'
 import { isModKey } from 'app/utils/events'
 import { subscribeUntil } from 'common/stores'
@@ -208,6 +208,10 @@ export default function editorModule(editor: Editor, options: {
 
 	let updateSelectionReveal = true
 	let smartParagraphBreaks = false
+
+	// Set when a vertical-arrow keypress is in flight; consumed by onChanged once the
+	// caret has actually moved, to snap it out of any hidden link brackets it landed in.
+	let pendingVerticalArrowSnap = false
 
 	let filepath = ''
 
@@ -692,6 +696,21 @@ export default function editorModule(editor: Editor, options: {
 		}
 	}
 
+	// Vertical arrow navigation picks a caret by pixel x; the zero-width brackets
+	// share the visible text's x, so pressing Up/Down onto a line that starts or
+	// ends with a link can drop the caret among the hidden brackets. Pull it back
+	// out to the near (outer) side of the link.
+	function snapCaretOutOfHiddenLinkBrackets() {
+		const doc = editor.doc
+		const selection = doc.selection
+		if (!selection || selection[0] !== selection[1]) return
+
+		const snapped = snapPositionOutOfHiddenLinkBrackets(doc, selection[0])
+		if (snapped !== selection[0]) {
+			editor.select([snapped, snapped])
+		}
+	}
+
 	// The caret snap is a convenience for the "following" click gesture — the same
 	// modifier state that would navigate a link (plain click when links open without
 	// a modifier, mod-click when they require one). The *other* gesture is the precise
@@ -913,6 +932,10 @@ export default function editorModule(editor: Editor, options: {
 	function onKeyDown(event: ShortcutEvent) {
 		if (event.defaultPrevented) return
 
+		// A stale flag (e.g. an ArrowUp at the top of the doc that didn't move) must
+		// not leak into a later keystroke; clear it before (re)arming below.
+		pendingVerticalArrowSnap = false
+
 		if (commandHandler && commandHandler(event)) return
 
 		switch (event.modShortcut) {
@@ -932,6 +955,30 @@ export default function editorModule(editor: Editor, options: {
 			case 'Cmd+Shift+ArrowLeft':
 				return toStartOfLine(event, true)
 		}
+
+		// Let native vertical navigation move the caret, then (in onChanged, once the
+		// selection has actually updated) nudge it out of any hidden link brackets it
+		// landed in. A timeout here would race the browser's selectionchange and read
+		// a stale caret position, snapping one keypress late.
+		switch (event.modShortcut) {
+			case 'ArrowUp':
+			case 'ArrowDown':
+				pendingVerticalArrowSnap = true
+				return
+		}
+	}
+
+	// Runs after every doc/selection update, including the one produced when native
+	// vertical navigation moves the caret. `editor.doc` is already the new document
+	// here (see Editor.update), so the snap reads the true post-move caret. Our own
+	// `editor.select` inside the snap re-enters this with the flag cleared, so there
+	// is no loop.
+	function onChanged() {
+		if (!pendingVerticalArrowSnap) return
+		const selection = editor.doc.selection
+		if (!selection || selection[0] !== selection[1]) return
+		pendingVerticalArrowSnap = false
+		snapCaretOutOfHiddenLinkBrackets()
 	}
 
 	function handleSelectionRequest(event: MouseEvent, mode: 'point' | 'all') {
@@ -1067,8 +1114,9 @@ export default function editorModule(editor: Editor, options: {
 	return {
 		init() {
 			editor.on('changing', onChanging)
+			editor.on('changed', onChanged)
 			editor.on('decorate', onDecorate)
-			
+
 			editor.root.addEventListener('shortcut', onKeyDown)
 			editor.root.addEventListener('mousedown', onMouseDown)
 			editor.root.addEventListener('click', onClick)
@@ -1078,6 +1126,7 @@ export default function editorModule(editor: Editor, options: {
 		},
 		destroy() {
 			editor.off('changing', onChanging)
+			editor.off('changed', onChanged)
 			editor.off('decorate', onDecorate)
 			
 			editor.root.removeEventListener('shortcut', onKeyDown)
