@@ -29,6 +29,7 @@ import { checkboxMatcher, getAutoChild, getDelimiterForGlyph, getGlyphForNumber,
 import type { Workspace } from 'app/model'
 import { deltaHasTextChanges, getEditInfo, getLineRangeWhile, getRangeWhile, getRangesIntersecting, getSelectedLines, intersectRanges, lineToText, snapPositionPastTrailingLinkBrackets } from 'common/typewriterUtils'
 import { isLeftClick, startDrag } from 'app/utils'
+import { isModKey } from 'app/utils/events'
 import { subscribeUntil } from 'common/stores'
 import { handleIsNode } from 'app/model/NodeHandle'
 import { isLineCollapsed, lineCollapseDepth } from 'common/markdownModel/sections'
@@ -691,8 +692,20 @@ export default function editorModule(editor: Editor, options: {
 		}
 	}
 
+	// The caret snap is a convenience for the "following" click gesture — the same
+	// modifier state that would navigate a link (plain click when links open without
+	// a modifier, mod-click when they require one). The *other* gesture is the precise
+	// one: it should leave the caret exactly where the click landed (inside the
+	// brackets), so a user can position there deliberately.
+	function clickShouldSnapCaret(event: MouseEvent) {
+		const followType = workspace?.settings?.noteLinkFollowBehavior?.value ?? 'none'
+		return followType === 'mod' ? isModKey(event) : !isModKey(event)
+	}
+
 	function onMouseDown(event: MouseEvent) {
 		if (isLeftClick(event)) {
+
+			const shouldSnap = clickShouldSnapCaret(event)
 
 			// Pause selection reveal until mouse up
 			updateSelectionReveal = false
@@ -705,7 +718,7 @@ export default function editorModule(editor: Editor, options: {
 					// Timeout delay is necessary to avoid a strange bug where
 					// selection doesn't appear to update
 					setTimeout(() => {
-						snapCaretPastTrailingLinkBrackets()
+						if (shouldSnap) snapCaretPastTrailingLinkBrackets()
 						// Resume selection reveal and force it to update
 						updateSelectionReveal = true
 						editor.modules.decorations.gatherDecorations()

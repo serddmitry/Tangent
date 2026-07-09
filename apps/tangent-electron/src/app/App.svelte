@@ -160,34 +160,29 @@ window.addEventListener('beforeunload', () => {
 		workspace.shutdown()
 	}
 })
-window.addEventListener('keydown', (event:KeyboardEvent) => {
-	if (event.key === 'Meta') {
-		document.body.classList.add('meta-pressed')
-	}
-	if (event.key === 'Control') {
-		document.body.classList.add('ctrl-pressed')
-	}
-	if (event.key === 'Alt') {
-		document.body.classList.add('alt-pressed')
-	}
-	if (event.key === 'Shift') {
-		document.body.classList.add('shift-pressed')
-	}
-})
-window.addEventListener('keyup', (event:KeyboardEvent) => {
-	if (event.key === 'Meta') {
-		document.body.classList.remove('meta-pressed')
-	}
-	if (event.key === 'Control') {
-		document.body.classList.remove('ctrl-pressed')
-	}
-	if (event.key === 'Alt') {
-		document.body.classList.remove('alt-pressed')
-	}
-	if (event.key === 'Shift') {
-		document.body.classList.remove('shift-pressed')
-	}
-})
+// Sync the modifier-pressed body classes from the event's actual modifier
+// state rather than toggling per-key. Toggling on keydown/keyup alone gets
+// stuck whenever a keyup is missed — e.g. a modifier held while focus leaves
+// the window (⌘-click that opens a pane, ⌘-Tab, a native menu). A stuck
+// `meta-pressed`/`ctrl-pressed` class then disables link pointer cursors and
+// hover underlines (see the `note-link-click-*` selectors in note.scss).
+// Reading the booleans off every event makes it self-heal on the next keystroke.
+function syncModifierClasses(event: KeyboardEvent | MouseEvent) {
+	document.body.classList.toggle('meta-pressed', event.metaKey)
+	document.body.classList.toggle('ctrl-pressed', event.ctrlKey)
+	document.body.classList.toggle('alt-pressed', event.altKey)
+	document.body.classList.toggle('shift-pressed', event.shiftKey)
+}
+function clearModifierClasses() {
+	document.body.classList.remove('meta-pressed', 'ctrl-pressed', 'alt-pressed', 'shift-pressed')
+}
+window.addEventListener('keydown', syncModifierClasses)
+window.addEventListener('keyup', syncModifierClasses)
+// Any pointer press also carries the true modifier state — heals a stuck
+// class on the first click, before the next keystroke.
+window.addEventListener('pointerdown', syncModifierClasses, true)
+// If focus leaves the window we can no longer observe the release, so clear.
+window.addEventListener('blur', clearModifierClasses)
 
 // Try to load a default workspace
 api.getWorkspace().then(setState)
