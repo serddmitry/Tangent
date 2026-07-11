@@ -24,13 +24,16 @@ export function setTLinkTooltipComponent(component: SvelteConstructor) {
 // always-current set sidesteps that race entirely: a freshly (re)connected
 // element just reads whatever is already true right now.
 const openLinks = new Set<TangentLink>()
-let openPaths = new Set<string>()
+let openNodes = new Set<TreeNode>()
 let threadWatcherUnsub: () => void = null
 
 function ensureThreadWatcher(workspace: Workspace) {
 	if (threadWatcherUnsub) return
 	threadWatcherUnsub = workspace.viewState.tangent.thread.subscribe(thread => {
-		openPaths = new Set((thread ?? []).map(node => node.path))
+		// Tree nodes retain their identity when they are renamed. Keeping the nodes
+		// themselves here means an in-place path update cannot make this snapshot
+		// stale before the thread store next emits.
+		openNodes = new Set(thread ?? [])
 		for (const link of openLinks) {
 			link.applyOpenState()
 		}
@@ -180,7 +183,7 @@ export class TangentLink extends HTMLElement {
 	// Highlights the link when its target is already open somewhere in the
 	// current thread (i.e. the sliding panels), mirroring Andy Matuschak's notes.
 	applyOpenState() {
-		this.openState = !!(this.resolvedNode && openPaths.has(this.resolvedNode.path))
+		this.openState = !!(this.resolvedNode && openNodes.has(this.resolvedNode))
 		this.toggleAttribute('data-open', this.openState)
 	}
 

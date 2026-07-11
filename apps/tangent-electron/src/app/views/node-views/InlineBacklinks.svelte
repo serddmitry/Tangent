@@ -77,12 +77,21 @@ function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 
 	// Flatten LinkInfoView's card into a muted, text-like row that brightens on hover
 	:global(.inlineBacklink) {
+		position: relative;
 		background-color: transparent;
-		padding: .35em .5em;
+		padding: .35em .5em .35em 1.15em;
 		border-radius: var(--inputBorderRadius);
 		opacity: .78;
 		cursor: pointer;
 		transition: opacity .12s, background-color .12s;
+
+		&::before {
+			content: '–';
+			position: absolute;
+			left: .35em;
+			top: .35em;
+			color: var(--deemphasizedTextColor);
+		}
 
 		&:hover, &:focus {
 			opacity: 1;
