@@ -454,6 +454,20 @@ Appologies for the inconvenience.`)
 	}
 })
 
+ipcMain.on('updateFileIndex', (event, filepath, content) => {
+	const windowHandle = getWindowHandle(event.sender)
+	const workspace = validateWorkspaceForHandleFilepath(windowHandle, filepath)
+
+	if (workspace && typeof content === 'string') {
+		try {
+			workspace.updateFileIndex(filepath, content)
+		}
+		catch (err) {
+			log.error('Failed to update the index for unsaved contents of', filepath, err)
+		}
+	}
+})
+
 ipcMain.on('updateMetadata', (event, files) => {
 	let windowHandle = getWindowHandle(event.sender)
 	if (windowHandle && windowHandle.workspace) {

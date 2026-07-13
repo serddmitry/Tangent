@@ -35,7 +35,7 @@ function updateInLinks(node: TreeNode) {
 }
 
 function inLinkID(info: ConnectionInfo) {
-	return `${info.from}_${info.start}-${info.end}`
+	return `${info.from}_${info.start}-${info.end}_${info.context}`
 }
 
 function onSelectLink(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {

@@ -831,6 +831,10 @@ export default class Workspace {
 		return FileSaveResult.Failed
 	}
 
+	updateFileIndex(filepath: string, contents: string) {
+		this.indexer.onFileContentChanged(filepath, contents)
+	}
+
 	updateMetadata(updates: IndexDataUpdate[], updater?: WindowHandle) {
 		let changedNodes = []
 		for (let data of updates) {

@@ -642,7 +642,8 @@ export function parseLink(char: string, parser: NoteParser): boolean {
 
 			builder.addOpenFormat('wiki-link-custom', {
 				hiddenGroup: true,
-				link_internal: true
+				link_internal: true,
+				spellcheck: false
 			})
 
 			parser.pushContext({

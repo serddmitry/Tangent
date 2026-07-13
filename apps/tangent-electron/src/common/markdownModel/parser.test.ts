@@ -403,7 +403,7 @@ describe('Link parsing', () => {
 					t_link,
 					hidden: true
 				},
-				'link with ', { t_link },
+				'link with ', { t_link, spellcheck: false },
 				'_', {
 					t_link,
 					italic: true,
@@ -411,14 +411,15 @@ describe('Link parsing', () => {
 				},
 				'inline', {
 					t_link,
-					italic: true
+					italic: true,
+					spellcheck: false
 				},
 				'_', {
 					t_link,
 					italic: true,
 					hidden: true
 				},
-				' formatting', { t_link },
+				' formatting', { t_link, spellcheck: false },
 				']]', {
 					t_link,
 					hidden: true

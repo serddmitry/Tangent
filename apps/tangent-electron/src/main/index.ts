@@ -307,7 +307,7 @@ Tangent ${app.getVersion()} Launched With Arguments:`, process.argv)
 
 let shouldInit = true
 
-if (mode === 'production') {
+if (mode === 'production' && !process.env.INTEGRATION_TEST) {
 	const hasLock = app.requestSingleInstanceLock()
 	if (!hasLock) {
 		app.quit()
@@ -332,4 +332,3 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 }
 
 if (shouldInit) initializeApplication()
-

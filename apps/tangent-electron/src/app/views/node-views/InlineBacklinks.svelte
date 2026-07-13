@@ -1,17 +1,16 @@
 <script lang="ts">
 import { getContext } from 'svelte'
-import type { TreeNode } from 'common/trees'
 import type { ConnectionInfo, HrefFormedLink } from 'common/indexing/indexTypes'
 import { getLinkDirectionFromEvent, type NavigationCallback } from 'app/events'
-import type { Workspace } from 'app/model'
+import type { Workspace, WorkspaceTreeNode } from 'app/model'
 import LinkInfoView from '../summaries/LinkInfoView.svelte'
 
-export let node: TreeNode
+export let node: WorkspaceTreeNode
 export let onNavigate: NavigationCallback
 
 const workspace = getContext('workspace') as Workspace
 
-$: inLinks = ((node?.meta?.inLinks ?? []) as ConnectionInfo[])
+$: inLinks = (($node?.meta?.inLinks ?? []) as ConnectionInfo[])
 	.slice()
 	.sort((a, b) => (a.from > b.from ? 1 : a.from < b.from ? -1 : 0))
 
@@ -38,7 +37,7 @@ function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 	<section class="inlineBacklinks">
 		<h2>{inLinks.length === 1 ? '1 linked reference' : `${inLinks.length} linked references`}</h2>
 		<div class="list">
-			{#each inLinks as link (link.from + '_' + link.start + '-' + link.end)}
+			{#each inLinks as link (link.from + '_' + link.start + '-' + link.end + '_' + link.context)}
 				<LinkInfoView
 					{link}
 					target="from"

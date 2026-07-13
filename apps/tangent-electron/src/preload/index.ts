@@ -179,6 +179,9 @@ const bridge: WindowApi = {
 		updateFile(filepath, content) {
 			ipcRenderer.send('updateFile', filepath, content)
 		},
+		updateFileIndex(filepath, content) {
+			ipcRenderer.send('updateFileIndex', filepath, content)
+		},
 		showInFileBrowser(path) {
 			ipcRenderer.send('showInFileBrowser', path)
 		},

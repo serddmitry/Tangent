@@ -125,6 +125,7 @@ let lastFocusLevel = focusLevel
 let isInitializing = false
 let allowSelectionScroll = true
 let saveTimeout = null
+let indexTimeout = null
 let hasSelection = false
 let justScrolled = true
 let editorIsFocused = false
@@ -228,6 +229,10 @@ function onEditorRoot() {
 }
 
 onDestroy(() => {
+	if (indexTimeout) {
+		window.clearTimeout(indexTimeout)
+		indexTimeout = null
+	}
 	if (note) {
 		note.dropFile()
 	}
@@ -480,6 +485,16 @@ export function saveFile() {
 	note.saveFile()
 }
 
+function updateFileIndex() {
+	indexTimeout = null
+	if (!note?.isDirty || !note.isReady) return
+
+	const content = note.getFileContent()
+	if (typeof content === 'string') {
+		note.api.updateFileIndex(note.path, content)
+	}
+}
+
 function setScrollTo(options: ScrollToOptions) {
 	if (willFixTitle) {
 		let marginY = marginToAxis(options.marginY ?? 0)
@@ -609,6 +624,13 @@ function onEditorChange(changeEvent: EditorChangeEvent) {
 		if (changeEvent.changedLines?.length > 0) {
 			// Only push updates to the note when real changes occur
 			note.lines = editor.doc.lines
+
+			// Keep backlink context in other open notes current without forcing a disk
+			// save for every keystroke. Reindex once the user pauses briefly.
+			if (indexTimeout) {
+				window.clearTimeout(indexTimeout)
+			}
+			indexTimeout = window.setTimeout(updateFileIndex, 300)
 		}
 
 		if (changeEvent.change?.delta?.ops.length > 0 && note.meta?.virtual) {
@@ -919,6 +941,10 @@ function onEditorFocus() {
 function onEditorBlur() {
 	editorIsFocused = false
 	if (!note.meta?.virtual) {
+		if (indexTimeout) {
+			window.clearTimeout(indexTimeout)
+			indexTimeout = null
+		}
 		if (saveTimeout) {
 			window.clearTimeout(saveTimeout)
 			saveTimeout = null

@@ -100,6 +100,8 @@ export default interface WindowAPI {
 		
 		/** Update a file with new contents. */
 		updateFile(filepath: string, content: string | unknown)
+		/** Update the workspace index from unsaved file contents. */
+		updateFileIndex(filepath: string, content: string)
 		/** Show the file or folder in the native file browser. */
 		showInFileBrowser(path: string)
 		/** Open a path in the default format */
