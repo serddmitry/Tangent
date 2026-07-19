@@ -9,10 +9,20 @@ export let node: WorkspaceTreeNode
 export let onNavigate: NavigationCallback
 
 const workspace = getContext('workspace') as Workspace
+const thread = workspace.viewState.tangent.thread
 
 $: inLinks = (($node?.meta?.inLinks ?? []) as ConnectionInfo[])
 	.slice()
 	.sort((a, b) => (a.from > b.from ? 1 : a.from < b.from ? -1 : 0))
+
+// Track thread membership by node identity, not path: tree nodes are renamed
+// in place, so a snapshot of path strings goes stale on rename (see t-link.ts).
+$: openNodes = new Set($thread)
+
+function isOpen(link: ConnectionInfo, openNodes: Set<unknown>) {
+	const fromNode = workspace.directoryStore.get(link.from)
+	return fromNode != null && openNodes.has(fromNode)
+}
 
 function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 	if (event.defaultPrevented || !onNavigate) return
@@ -41,7 +51,7 @@ function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 				<LinkInfoView
 					{link}
 					target="from"
-					className="inlineBacklink"
+					className={isOpen(link, openNodes) ? 'inlineBacklink open' : 'inlineBacklink'}
 					onSelect={e => onSelect(e, link)}
 				/>
 			{/each}
@@ -99,9 +109,27 @@ function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 		}
 
 		:global(h1) {
-			color: var(--accentTextColor);
 			font-weight: 500;
 		}
+	}
+
+	// Source note is already open in the current thread. Kept as a sibling rule:
+	// compounding onto the :global(...) parent with `&` leaks a literal
+	// `:global()` into the compiled CSS, which browsers discard.
+	:global(.inlineBacklink.open)::before {
+		content: '•';
+		color: inherit;
+	}
+
+	// Experiment: give open-note titles the same soft background treatment as
+	// open links in the note body (t-link[data-open] in note.scss), but neutral:
+	// derived from the text color, so it stays grayish in any theme.
+	:global(.inlineBacklink.open h1) {
+		align-self: flex-start;
+		background-color: color-mix(in srgb, currentColor 14%, transparent);
+		border-radius: 3px;
+		padding: 0 .25em;
+		margin-left: -.25em;
 	}
 }
 </style>
