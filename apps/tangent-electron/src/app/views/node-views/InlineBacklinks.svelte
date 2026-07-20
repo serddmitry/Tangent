@@ -130,6 +130,12 @@ function onSelect(event: KeyboardEvent | MouseEvent, inLink: ConnectionInfo) {
 		border-radius: 3px;
 		padding: 0 .25em;
 		margin-left: -.25em;
+
+		// Dark text over a light page makes the same tint look heavier,
+		// so back it off in light mode.
+		:global(body.light) & {
+			background-color: color-mix(in srgb, currentColor 9%, transparent);
+		}
 	}
 }
 </style>
