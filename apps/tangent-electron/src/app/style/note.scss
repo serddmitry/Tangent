@@ -114,6 +114,7 @@ article.note {
 
 		margin-inline-start: 2em;
 		border-inline-start: 4px solid var(--deemphasizedTextColor);
+		padding-inline-start: .5em;
 
 		// TODO: Block quotes would idealy be nested
 		&.depth-1 {
