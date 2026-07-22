@@ -23,10 +23,19 @@ exports.default = async function notarizeTheApp(context) {
 	let notarizeConfig = {
 		tool: 'notarytool',
 		appBundleId: config.appId,
-		appPath: `${context.appOutDir}/${appName}.app`,
-		appleId: process.env.APPLE_ID,
-		teamId: process.env.APPLE_TEAM_ID,
-		appleIdPassword: process.env.APPLE_ID_PASSWORD
+		appPath: `${context.appOutDir}/${appName}.app`
+	}
+
+	// Prefer env-var credentials when fully provided (e.g. CI); otherwise fall
+	// back to a Keychain profile created with `xcrun notarytool store-credentials`
+	// (default name "TangentNotary"), so no app-specific password lives on disk.
+	if (process.env.APPLE_ID && process.env.APPLE_TEAM_ID && process.env.APPLE_ID_PASSWORD) {
+		notarizeConfig.appleId = process.env.APPLE_ID
+		notarizeConfig.teamId = process.env.APPLE_TEAM_ID
+		notarizeConfig.appleIdPassword = process.env.APPLE_ID_PASSWORD
+	}
+	else {
+		notarizeConfig.keychainProfile = process.env.NOTARY_PROFILE || 'TangentNotary'
 	}
 
 	console.log('notarizing...')

@@ -18,6 +18,7 @@
     "release": "electron-builder",
     "package:test": "electron-builder --publish never --dir -c.mac.identity=null",
     "release:test-notarize": "NOTARIZE=force electron-builder --publish never",
+    "package:notarized": "npm run build && npm run release:test-notarize && ./build/stage-app.sh",
     "publish:mac": "electron-builder --mac --publish always",
     "package:mac": "electron-builder --mac --publish never",
     "publish:win": "electron-builder --win --publish always",

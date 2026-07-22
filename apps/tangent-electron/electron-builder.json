@@ -31,8 +31,8 @@
 		"entitlements": "build/entitlements.mac.plist",
 		"entitlementsInherit": "build/entitlements.mac.plist",
 		"target": {
-			"target": "default",
-			"arch": "universal"
+			"target": "zip",
+			"arch": "arm64"
 		},
 		"icon": "build/Icon.icon",
 		"notarize": false,
