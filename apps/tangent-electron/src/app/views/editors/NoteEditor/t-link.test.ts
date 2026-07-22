@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
 import type { TreeNode } from 'common/trees'
+import './t-embed' // Fixes an order-of-import issue where TangentEmbed couldn't access TangentLink early enough. This only shows up in vitest.
 import { TangentLink } from './t-link'
 
 describe('TangentLink open-note highlighting', () => {
