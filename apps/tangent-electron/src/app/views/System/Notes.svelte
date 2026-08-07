@@ -109,6 +109,7 @@ async function getSpellCheckLanguages() {
 	</div>
 	<div class="settingsGroup">
 		<SettingView setting={settings.letCodeExpand} />
+		<SettingView setting={settings.letCodePreviewExpand} />
 		<SettingView setting={settings.allowUnknownHTMLTags} />
 		<SettingView setting={settings.collapseFrontMatter} />
 	</div>

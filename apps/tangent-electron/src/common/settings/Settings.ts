@@ -678,6 +678,12 @@ export default class Settings extends ObjectStore {
 		defaultValue: true
 	})
 
+	letCodePreviewExpand = new Setting<boolean>({
+		name: 'Extra Wide Diagrams',
+		description: 'Allow rendered code output, like mermaid diagrams, to expand into the margins of a note.',
+		defaultValue: true
+	})
+
 	allowUnknownHTMLTags = new Setting<boolean>({
 		name: 'Allow Unknown HTML Tags',
 		description: 'When true, allow HTML sections to be started by non-standard HTML tag names. (Requires restart.)',

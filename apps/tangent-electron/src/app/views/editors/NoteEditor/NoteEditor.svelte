@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getContext, onDestroy, tick } from 'svelte'
+import { getContext, onDestroy, onMount, tick } from 'svelte'
 import {
 	DecorateEvent,
 	type DecorationsModule,
@@ -21,6 +21,7 @@ import type NoteFile from 'app/model/NoteFile'
 import MarkdownEditor from './MarkdownEditor'
 
 import TangentEmbed from './t-embed'
+import { CODE_PREVIEW_RENDERED, type default as TangentCodePreview } from './t-code-preview'
 import type { NavigationEvent } from '../t-linkModule'
 import WikiLinkAutocompleter from '../autocomplete/WikiLinkAutocompleter'
 import AutoCompleteMenu from '../autocomplete/AutoCompleteMenu.svelte'
@@ -80,6 +81,7 @@ const {
 	smartParagraphBreaks,
 	fixedTitle: fixedTitleSetting,
 	letCodeExpand,
+	letCodePreviewExpand,
 	contentSpellCheck,
 	showInlineBacklinks
 } = workspace.settings
@@ -676,7 +678,7 @@ function onEditorDecorate(event: DecorateEvent) {
 	applyFocusDecorations(doc)
 	applyAnnotations(event)
 
-	if ($letCodeExpand) {
+	if ($letCodeExpand || $letCodePreviewExpand) {
 		tick().then(() => {
 			updateAllCodeBlockSizing()
 		})
@@ -1329,20 +1331,34 @@ let resizeObserver = new ResizeObserver(elements => {
 	if (resizeTimeout) clearTimeout(resizeTimeout)
 	resizeTimeout = setTimeout(() => updateAllCodeBlockSizing(), 200)
 })
-$: if ($letCodeExpand && container && editorElement) {
-	resizeObserver.observe(container)
+
+// Previews render asynchronously, so their size isn't known at decorate time.
+let previewTimeout = null
+function onCodePreviewRendered() {
+	if (!$letCodePreviewExpand) return
+	// Coalesce the burst of events from a note with several diagrams
+	if (previewTimeout) clearTimeout(previewTimeout)
+	previewTimeout = setTimeout(() => updateAllCodeBlockSizing(), 50)
 }
-else {
-	resizeObserver.disconnect()
-	// Burn down the styling
-	const codeWrappers = editorElement?.querySelectorAll('pre')
-	if (codeWrappers?.length) {
-		for (let i = 0; i < codeWrappers.length; i++) {
-			const pre = codeWrappers[i]
-			pre.style.marginLeft = ''
-			pre.style.marginRight = ''
-		}
+onMount(() => {
+	// Not an `on:` directive; svelte's dom typings don't know custom events
+	editorElement.addEventListener(CODE_PREVIEW_RENDERED, onCodePreviewRendered)
+	return () => editorElement.removeEventListener(CODE_PREVIEW_RENDERED, onCodePreviewRendered)
+})
+onDestroy(() => {
+	if (previewTimeout) clearTimeout(previewTimeout)
+	if (resizeTimeout) clearTimeout(resizeTimeout)
+})
+$: if (container && editorElement) {
+	if ($letCodeExpand || $letCodePreviewExpand) {
+		resizeObserver.observe(container)
 	}
+	else {
+		resizeObserver.disconnect()
+	}
+	// Re-run so that either setting being turned off burns down the styling
+	// it was applying, while leaving the other setting's styling alone.
+	updateAllCodeBlockSizing()
 }
 
 
@@ -1379,15 +1395,69 @@ function updateSelectedCodeBlockSizing() {
 }
 
 function updateAllCodeBlockSizing() {
-	const codeWrappers = editorElement?.querySelectorAll('pre:not(.indented)')
-	if (!codeWrappers?.length) return
+	if (!editorElement) return
+
+	// Indented blocks are never expanded, but are still queried so that they
+	// get cleaned up if they were expanded before being indented.
+	const codeWrappers = editorElement.querySelectorAll('pre')
+	const previews = editorElement.querySelectorAll('t-code-preview')
+	if (!codeWrappers.length && !previews.length) return
 
 	const context = getCodeBlockSizingContext()
 	if (!context) return
 
 	for (let i = 0; i < codeWrappers.length; i++) {
-		updateCodeBlockSizing(codeWrappers[i] as HTMLElement, context)
+		const pre = codeWrappers[i] as HTMLElement
+		if ($letCodeExpand && !pre.classList.contains('indented')) {
+			updateCodeBlockSizing(pre, context)
+		}
+		else {
+			clearBlockExpansion(pre)
+		}
 	}
+
+	for (let i = 0; i < previews.length; i++) {
+		const preview = previews[i] as TangentCodePreview
+		if ($letCodePreviewExpand) {
+			updateCodePreviewSizing(preview, context)
+		}
+		else {
+			clearBlockExpansion(preview)
+		}
+	}
+}
+
+// Indentation is driven by `--lineIndent`, so clearing the margins here does
+// not disturb an indented block's position.
+function clearBlockExpansion(element: HTMLElement) {
+	element.style.marginLeft = ''
+	element.style.marginRight = ''
+}
+
+/**
+ * Rendered output (e.g. a mermaid diagram) is fit to whatever width it is
+ * given, so a wide diagram gets squeezed down to the note's text column.
+ * This lets it reach back out into the margins, in the same way that a code
+ * block with long lines does.
+ */
+function updateCodePreviewSizing(preview: TangentCodePreview, context: CodeBlockSizingContext) {
+	// Nothing rendered yet, or nothing that reports a size
+	if (!preview.naturalWidth) return clearBlockExpansion(preview)
+
+	// Indented blocks are left alone, matching code blocks
+	if (preview.closest('figure')?.querySelector('pre.indented')) return clearBlockExpansion(preview)
+
+	const maxWidth = context.containerRect.width - $noteFontSize * 2
+	const finalWidth = Math.min(preview.naturalWidth, maxWidth)
+
+	// The preview fills the text column by default, so that is the width being
+	// grown out of. A diagram narrower than the column needs no help.
+	const difference = finalWidth - context.editorContentWidth
+	if (difference <= 0) return clearBlockExpansion(preview)
+
+	const margin = '-' + (difference * .5) + 'px'
+	preview.style.marginLeft = margin
+	preview.style.marginRight = margin
 }
 
 function updateCodeBlockSizing(pre: HTMLElement, context: CodeBlockSizingContext) {

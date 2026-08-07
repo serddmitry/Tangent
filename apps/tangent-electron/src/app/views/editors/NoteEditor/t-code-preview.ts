@@ -3,9 +3,23 @@ import mermaid from 'mermaid'
 
 let nextIdValue = 0
 
+/**
+ * Sent (bubbling & composed) whenever a preview finishes rendering.
+ * `naturalWidth` is only meaningful once this has fired.
+ */
+export const CODE_PREVIEW_RENDERED = 'code-preview-rendered'
+
 class TangentCodePreview extends HTMLElement {
 	private content: HTMLElement
 	private isPendingUpdate = false
+
+	/**
+	 * The intrinsic width of the rendered output in pixels, or 0 when there is
+	 * nothing rendered. Mermaid fits its svg to whatever width it is given, so
+	 * this is what the note editor needs in order to know how much room a
+	 * diagram would actually use if it were allowed into the note's margins.
+	 */
+	naturalWidth = 0
 
 	constructor() {
 		super()
@@ -54,15 +68,45 @@ class TangentCodePreview extends HTMLElement {
 		if (language === 'mermaid') {
 			mermaid.render('mermaid-diagram-' + nextIdValue++, source).then(result => {
 				this.content.innerHTML = result.svg
+				this.onContentUpdated()
 			})
 			.catch(error => {
 				this.content.innerHTML = `<div>Invalid Mermaid Source</div>
 					<div style="color: red; white-space: pre-wrap; text-align: left; font-family: var(--codeFontFamily); font-size: 80%;">${error}</div>`
+				this.onContentUpdated()
 			})
 		}
 		else {
 			this.content.innerHTML = ''
+			this.onContentUpdated()
 		}
+	}
+
+	private onContentUpdated() {
+		this.naturalWidth = this.measureNaturalWidth()
+		this.dispatchEvent(new CustomEvent(CODE_PREVIEW_RENDERED, {
+			bubbles: true,
+			// The preview lives in a shadow root; without this the note editor
+			// never sees the event.
+			composed: true
+		}))
+	}
+
+	private measureNaturalWidth() {
+		const svg = this.content.querySelector('svg')
+		if (!svg) return 0
+
+		// With mermaid's default `useMaxWidth`, the svg is given `width: 100%`
+		// and a `max-width` holding the size the diagram actually wants.
+		const maxWidth = parseFloat(svg.style.maxWidth)
+		if (maxWidth > 0) return maxWidth
+
+		// Otherwise the diagram is fixed-size and the viewBox carries the truth.
+		const viewBoxWidth = svg.viewBox?.baseVal?.width
+		if (viewBoxWidth > 0) return viewBoxWidth
+
+		const attributeWidth = parseFloat(svg.getAttribute('width'))
+		return attributeWidth > 0 ? attributeWidth : 0
 	}
 }
 
