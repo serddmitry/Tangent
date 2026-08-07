@@ -13,11 +13,22 @@ bundle and does not repackage `dist/mac-arm64/Tangent.app`).
 From `apps/tangent-electron`:
 
 ```bash
+# Quit any running Tangent FIRST (see below), then:
 npm run build          # REQUIRED: rebuilds the webpack bundle into __build
 npm run package:test   # electron-builder --dir -c.mac.identity=null
 xattr -dr com.apple.quarantine dist/mac-arm64/Tangent.app  # unsigned → clear Gatekeeper
 open dist/mac-arm64/Tangent.app
 ```
+
+**Quit the running app before packaging, not after.** `package:test` wipes and
+rewrites `dist/mac-arm64/`, including the ~70MB `app.asar`. If Tangent is
+running, two things go wrong at once: the live renderer ends up sitting on an
+archive that was swapped out from under it (it starts rendering garbage — e.g.
+a theme CSS file as the document), and `open` hits Electron's single-instance
+lock, so it just signals the *old* process instead of launching the new build.
+The result looks like a catastrophic code bug and is neither. Verify with
+`ps aux | grep -i "[T]angent"` before packaging, and check the new process's
+start time (`ps -o lstart= -p <pid>`) after launching.
 
 `npm run build` is **not optional**: `package:test` (electron-builder) only
 packages whatever is already in `__build` — it does **not** rebuild the bundle.
