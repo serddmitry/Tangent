@@ -8,6 +8,7 @@ import type { EditorRange } from 'typewriter-editor'
 import MarkdownEditor from 'app/views/editors/NoteEditor/MarkdownEditor'
 import type { HrefFormedLink } from 'common/indexing/indexTypes'
 import { getLineFormattingPrefix } from 'common/markdownModel/line'
+import type { ListDefinition } from 'common/markdownModel/list'
 import { derived } from 'svelte/store'
 
 function getNoteView(tangent: Tangent) {
@@ -327,6 +328,72 @@ export class ShiftNoteGroupCommand extends NoteEditorCommand {
 
 	getTooltip(context?: CommandContext) {
 		return `Shifts the selected ${this.mode} ${this.direction < 0 ? 'up' : 'down'} by one step.`
+	}
+
+	getDefaultPaletteName() {
+		return this.getName()
+	}
+}
+
+/** The state a checkbox is toggled to & from when it isn't already in that state */
+type CheckboxToggleMode = 'checked' | 'canceled'
+interface ToggleCheckboxCommandOptions extends CommandOptions {
+	mode: CheckboxToggleMode
+}
+
+export class ToggleCheckboxCommand extends NoteEditorCommand {
+
+	readonly mode: CheckboxToggleMode
+
+	constructor(workspace: Workspace, options: ToggleCheckboxCommandOptions) {
+		super(workspace, options)
+		this.mode = options.mode
+	}
+
+	private getCheckboxTargets(context?: NoteEditorCommandContext) {
+		const targets = this.getTargets(context)
+		if (!targets) return null
+		const { editor, selection } = targets
+
+		const lines = editor.doc.getLinesAt(selection).filter(line => {
+			return (line.attributes?.list as ListDefinition)?.todoState != null
+		})
+		if (!lines.length) return null
+
+		return { editor, lines }
+	}
+
+	canExecute(context?: NoteEditorCommandContext): boolean {
+		return this.getCheckboxTargets(context) != null
+	}
+
+	execute(context?: NoteEditorCommandContext): void {
+		const targets = this.getCheckboxTargets(context)
+		if (!targets) return
+		const { editor, lines } = targets
+
+		editor.checkboxes.setCheckboxOnLines(lines, this.mode === 'canceled' ? 'toggleCanceled' : 'toggle')
+	}
+
+	getChecked(context?: NoteEditorCommandContext): boolean | null {
+		const targets = this.getCheckboxTargets(context)
+		if (!targets) return null
+		return targets.lines.every(line => (line.attributes.list as ListDefinition).todoState === this.mode)
+	}
+
+	getName() {
+		return this.mode === 'canceled' ? 'Toggle Checkbox Canceled' : 'Toggle Checkbox'
+	}
+
+	getLabel(context?: NoteEditorCommandContext) {
+		return this.mode === 'canceled' ? 'Canceled Checkbox' : 'Checkbox'
+	}
+
+	getTooltip(context?: NoteEditorCommandContext) {
+		if (this.mode === 'canceled') {
+			return 'Cancels or re-opens the checkbox(es) on the selected line(s).'
+		}
+		return 'Completes or re-opens the checkbox(es) on the selected line(s).'
 	}
 
 	getDefaultPaletteName() {

@@ -8,7 +8,7 @@ import WikiLinkAutocompleter from '../autocomplete/WikiLinkAutocompleter'
 import type { Workspace } from 'app/model'
 import { getLineFormattingPrefix } from 'common/markdownModel/line'
 import tlinkModule from '../t-linkModule'
-import tCheckboxModule from '../t-checkboxModule'
+import tCheckboxModule, { type TCheckboxModule } from '../t-checkboxModule'
 import TagAutocompleter from '../autocomplete/TagAutocompleter'
 import { getRegexMatchIndices } from '@such-n-such/core'
 import UnicodeAutocompleter from '../autocomplete/UnicodeAutocompleter'
@@ -198,6 +198,7 @@ export default class MarkdownEditor extends Editor {
 	}
 
 	get mainModule() { return this.modules.tangent as ReturnType<typeof editorModule> }
+	get checkboxes() { return this.modules.tCheckbox as TCheckboxModule }
 	get collapsingSections() { return this.modules.collapsingSections as CollapsingSectionsModule }
 	get autocomplete() { return this.modules.autocomplete as AutocompleteModule }
 }

@@ -32,7 +32,7 @@ import ShowAllChildMapNodesCommand from './ShowAllChildMapNodes'
 import ShowPreviousSessionCommand from './ShowPreviousSession'
 import DuplicateNodeCommand from './DuplicateNode'
 import { CollapseAllSectionsCommand, CollapseCurrentSectionCommand } from './CollapseSectionCommands'
-import { InlineFormatCommand, NoteLinePrefixCommand, SearchNoteCommand, ShiftNoteGroupCommand, ToggleMDLinkCommand as ToggleMarkdownLinkCommand, ToggleWikiLinkCommand } from './NoteFormattingCommands'
+import { InlineFormatCommand, NoteLinePrefixCommand, SearchNoteCommand, ShiftNoteGroupCommand, ToggleCheckboxCommand, ToggleMDLinkCommand as ToggleMarkdownLinkCommand, ToggleWikiLinkCommand } from './NoteFormattingCommands'
 import { isMac } from 'common/platform'
 import { NativeCommand } from './NativeCommand'
 import { OpenDocumentationCommand } from './OpenDocumentation'
@@ -310,6 +310,15 @@ function createAllCommands(workspace: Workspace) {
 			label: 'Paragraph',
 			tooltip: 'Changes the currently selected line(s) to be paragraphs.',
 			prefix: ''
+		}),
+
+		toggleCheckbox: new ToggleCheckboxCommand(workspace, {
+			mode: 'checked',
+			shortcut: 'Mod+Enter'
+		}),
+		toggleCheckboxCanceled: new ToggleCheckboxCommand(workspace, {
+			mode: 'canceled',
+			shortcut: 'Alt+Enter'
 		}),
 
 		shiftLinesUp: new ShiftNoteGroupCommand(workspace, {

@@ -508,6 +508,44 @@ describe('List Handling', () => {
 	- [ ] A checked list item`)
 		})
 
+		it('Should toggle multiple checkboxes at once', async () => {
+			editor.doc = markdownToTextDocument(`
+	- [ ] An unchecked list item
+	- [x] A checked list item
+	Not a list item
+	- [-] A canceled list item`)
+
+			await wait(waitTime)
+
+			editor.modules.tCheckbox.setCheckboxOnLines(editor.doc.lines.slice(1))
+
+			await wait(waitTime)
+
+			expect(editor.getText()).toEqual(`
+	- [x] An unchecked list item
+	- [ ] A checked list item
+	Not a list item
+	- [ ] A canceled list item`)
+		})
+
+		it('Should toggle checkboxes between canceled and open', async () => {
+			editor.doc = markdownToTextDocument(`
+	- [ ] An unchecked list item
+	- [x] A checked list item
+	- [-] A canceled list item`)
+
+			await wait(waitTime)
+
+			editor.modules.tCheckbox.setCheckboxOnLines(editor.doc.lines.slice(1), 'toggleCanceled')
+
+			await wait(waitTime)
+
+			expect(editor.getText()).toEqual(`
+	- [-] An unchecked list item
+	- [-] A checked list item
+	- [ ] A canceled list item`)
+		})
+
 		it('Should let you check a checkbox without affecting other checkboxes or text', async () => {
 			editor.doc = markdownToTextDocument(`
 	- [] An unchecked list item
