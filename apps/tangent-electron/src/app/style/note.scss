@@ -203,7 +203,12 @@ article.note {
 					// This is super hacky, but it gets the right result
 					// accross different line heights and font sizes
 					position: absolute;
-					inset-inline-start: calc(-.42 * var(--indentWidth));
+					// The box is 1em wide and its svg sits .15em further inline-start
+					// than the host. The line's text effectively starts at the
+					// paragraph's inline start (the negative `text-indent` above is
+					// eaten by the space following the glyph), so this leaves two
+					// space widths between the box and the text.
+					inset-inline-start: calc(.15em - 1em - (var(--spaceWidth) * 2));
 					top: calc(rhythmUnit(1) * .5);
 					transform: translateY(-75%);
 				}
