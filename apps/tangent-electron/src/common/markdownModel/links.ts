@@ -7,7 +7,7 @@ import type { DefaultIndexStore } from 'common/indexing/IndexTreeStore'
 import { getTagPath } from 'common/indexing/TagNode'
 import NoteParser from './NoteParser'
 import { ParsingContextType, type ParsingProgram } from './parsingContext'
-import { fileUrlToPath, isExternalLink, isFileUrl } from 'common/links'
+import { fileUrlToPath, isExternalLink, isFileUrl, unescapeLinkPath } from 'common/links'
 
 interface ExtendedLinkInfo extends LinkInfo {
 	complete?: boolean
@@ -302,14 +302,16 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 				return link.href
 			}
 
+			// Paths copied out of the OS arrive shell-escaped
+			const href = unescapeLinkPath(link.href)
+
 			// `file://` urls and `~/` paths name a specific location on disk.
 			// They're never relative to the linking note, so they resolve the
 			// same way with or without an origin.
-			const localPath = isFileUrl(link.href)
-				? fileUrlToPath(link.href)
-				: paths.expandHomeDirectory(link.href)
+			const isFile = isFileUrl(href)
+			const localPath = isFile ? fileUrlToPath(href) : paths.expandHomeDirectory(href)
 
-			if (localPath !== link.href) {
+			if (isFile || localPath !== href) {
 				const resolvedLocalPath = paths.resolve(localPath)
 				// The target may still live in the workspace (e.g. a `~/` path
 				// pointing back into it), in which case open it in Tangent.
@@ -319,8 +321,8 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 			if (!link.from) {
 				// A rooted path has nothing to be relative *to*, so it can still
 				// be resolved without an origin.
-				if (paths.isAbsolute(link.href)) {
-					return paths.resolve(link.href)
+				if (paths.isAbsolute(href)) {
+					return paths.resolve(href)
 				}
 				console.error('Cannot resolve a md link without "from".', link)
 				return
@@ -337,7 +339,7 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 					return
 				}
 
-				const filePath = paths.resolve(paths.join(relativeRoot, link.href))
+				const filePath = paths.resolve(paths.join(relativeRoot, href))
 				const node = store.get(filePath)
 				if (node) return node
 
@@ -345,13 +347,13 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 				// note's folder (`join` drops the leading separator). Keep that
 				// interpretation when it lands on a real file so existing notes
 				// don't break, but otherwise take the path at face value.
-				if (paths.isAbsolute(link.href)) {
-					return paths.resolve(link.href)
+				if (paths.isAbsolute(href)) {
+					return paths.resolve(href)
 				}
 
 				return filePath
 			}
-			return paths.isAbsolute(link.href) ? paths.resolve(link.href) : undefined
+			return paths.isAbsolute(href) ? paths.resolve(href) : undefined
 		case 'tag':
 			return store.get(link.to ?? getTagPath(link.href))
 		case 'front-matter':

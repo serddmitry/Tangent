@@ -116,14 +116,15 @@ test('links to files outside of the workspace open in their default app', async 
 		`- [home](~/a-folder/sample.pdf)`,
 		`- [file url](file://${external}/sample.pdf)`,
 		`- [escaped](file://${external}/spaced%20name.pdf)`,
-		`- [folder](${external})`
+		`- [folder](${external})`,
+		`- [shell escaped](${external.replace(/ /g, '\\ ')}/spaced\\ name.pdf)`
 	].join('\n\n'))
 
 	// Every one of these resolves outside the workspace, so every one is
 	// "untracked": known to be a real location, but not a workspace node.
 	const links = window.page.locator('.current t-link')
-	await expect(links).toHaveCount(6)
-	for (let i = 0; i < 6; i++) {
+	await expect(links).toHaveCount(7)
+	for (let i = 0; i < 7; i++) {
 		await expect(links.nth(i)).toHaveAttribute('link-state', 'untracked')
 	}
 
@@ -147,6 +148,10 @@ test('links to files outside of the workspace open in their default app', async 
 	// A folder opens too; the shell shows it in the file browser
 	expect((await clickLink(window, tangent, 5)).openPath.at(-1))
 		.toEqual(external)
+
+	// Shell-escaped, the way macOS Finder's "Copy as Pathname" hands it over
+	expect((await clickLink(window, tangent, 6)).openPath.at(-1))
+		.toEqual(path.join(external, 'spaced name.pdf'))
 
 	// None of this should have gone out to the shell as a url
 	expect((await getShellCalls(tangent)).openExternal).toEqual([])

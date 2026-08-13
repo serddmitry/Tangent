@@ -459,6 +459,22 @@ describe('Resolving links to files outside of the workspace', () => {
 			expect.objectContaining({ path: '/Users/me/notes/sub/nested.md' }))
 	})
 
+	it('Should resolve a path escaped the way the OS hands it over', () => {
+		// This is verbatim what macOS Finder's "Copy as Pathname" produces
+		expect(resolveFrom('/Users/me/Library/Mobile\\ Documents/com\\~apple\\~CloudDocs/Areas/Дом/home.pdf'))
+			.toEqual('/Users/me/Library/Mobile Documents/com~apple~CloudDocs/Areas/Дом/home.pdf')
+	})
+
+	it('Should handle escapes in relative and home paths too', () => {
+		expect(resolveFrom('../My\\ Documents/spec.pdf')).toEqual('/Users/me/My Documents/spec.pdf')
+		expect(resolveFrom('~/My\\ Documents/spec.pdf')).toEqual('/Users/me/My Documents/spec.pdf')
+	})
+
+	it('Should not mistake a Windows separator for an escape', () => {
+		// `\U` is not an escapable character, so these stay separators
+		expect(resolveFrom('C:\\Users\\me\\spec.pdf')).toEqual('C:\\Users\\me\\spec.pdf')
+	})
+
 	it('Should resolve a file url', () => {
 		expect(resolveFrom('file:///Users/me/Documents/spec.pdf'))
 			.toEqual('/Users/me/Documents/spec.pdf')

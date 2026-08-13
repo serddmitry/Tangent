@@ -1,3 +1,5 @@
+import { isWindows } from 'common/platform'
+
 // From http://urlregex.com
 const externalLinkMatch = /((([A-Za-z]{3,9}:(?:\/\/)?)(?:[\-;:&=\+\$,\w]+@)?[A-Za-z0-9\.\-]+|(?:www\.|[\-;:&=\+\$,\w]+@)[A-Za-z0-9\.\-]+)((?:\/[\+~%\/\.\w\-_]*)?\??(?:[\-\+=&;%@\.\w_]*)#?(?:[\.\!\/\\\w]*))?)/
 
@@ -9,6 +11,28 @@ export function isExternalLink(link: string) {
 const rootLinkMatch = /^\/|\\/
 export function isRootLink(link: string) {
 	return link?.match(rootLinkMatch)
+}
+
+/*
+ * Backslash escapes in front of a space or ASCII punctuation. macOS's Finder
+ * produces these for "Copy as Pathname", as does dragging a file into a
+ * terminal, so escaped paths are what users actually have on the clipboard.
+ * Markdown uses the same convention for escaping punctuation.
+ *
+ * A backslash in front of anything else (`C:\Users`) is left alone: that's a
+ * Windows separator, not an escape.
+ */
+const pathEscapeMatch = /\\([ !"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g
+
+/**
+ * Removes backslash escapes from a link href being treated as a filesystem
+ * path. Not applied on Windows, where `\` really is a path separator.
+ *
+ * A literal backslash in a filename needs to be written as `%5C`.
+ */
+export function unescapeLinkPath(href: string): string {
+	if (!href || isWindows) return href
+	return href.replace(pathEscapeMatch, '$1')
 }
 
 const fileUrlMatch = /^file:\/\//i
