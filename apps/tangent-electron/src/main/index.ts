@@ -39,6 +39,7 @@ import { getRegistry } from './grammarLoader'
 import { INITIAL } from 'vscode-textmate'
 import { initializeDebugging } from './debugging'
 import { addShutDownTask, isReadyToShutDown, shutDown } from './shutdown'
+import { setHomeDirectory } from 'common/paths'
 
 var isInitialized = false
 
@@ -330,5 +331,8 @@ if (process.env.PORTABLE_EXECUTABLE_DIR) {
 	// Redirect chromium session data back to its default location
 	app.setPath('sessionData', app.getPath('appData'))
 }
+
+// Link resolution happens in both processes; both need to be able to expand `~`
+setHomeDirectory(app.getPath('home'))
 
 if (shouldInit) initializeApplication()

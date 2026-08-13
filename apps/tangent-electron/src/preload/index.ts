@@ -109,6 +109,9 @@ const bridge: WindowApi = {
 		}
 	},
 	system: {
+		// Resolved once, at preload time: the renderer has no access to `os`,
+		// but needs the home directory to expand `~/` paths in links.
+		homeDirectory: ipcRenderer.sendSync('getHomeDirectory') as string,
 		getAllFonts() {
 			return ipcRenderer.invoke('getAllFonts')
 		},

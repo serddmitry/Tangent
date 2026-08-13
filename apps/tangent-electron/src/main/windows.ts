@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, type MenuItemConstructorOptions, shell } from 'electron'
+import { BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 import path from 'path'
 import os from 'os'
 import { mode } from './environment'
@@ -11,6 +11,7 @@ import { ipcMain } from 'electron'
 import { cleanMenuTemplate } from '../common/menus'
 import { getSettings } from './settings'
 import { addShutDownTask } from './shutdown'
+import { openExternalSafely } from './safeOpen'
 import { wait } from '@such-n-such/core'
 
 let defaultLanguages = null
@@ -75,7 +76,7 @@ export function createWindow(assignedWorkspace?: string) {
 
 	// Handle links by default
 	newWindow.webContents.setWindowOpenHandler(details => {
-		shell.openExternal(details.url)
+		openExternalSafely(details.url, newWindow)
 		return { action: 'deny' }
 	})
 

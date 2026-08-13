@@ -1,8 +1,12 @@
 import { mount } from 'svelte'
 import App from './App.svelte'
+import { setHomeDirectory } from 'common/paths'
 
 import './style/input.scss'
 import './style/note.scss'
+
+// Link resolution needs this before any note is rendered.
+setHomeDirectory(window.api.system.homeDirectory)
 
 import * as pdfjs from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs'

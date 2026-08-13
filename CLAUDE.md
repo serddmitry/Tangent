@@ -56,5 +56,47 @@ Unit tests (fast, run these after editing pure logic):
 cd apps/tangent-electron && npx vitest run <path>
 ```
 
+### Verifying app behavior: use the integration harness, not the packaged app
+
+`tests-integration/` is a Playwright + Electron harness that **launches the real
+app** against a throwaway workspace. This is the way to verify anything that
+involves the UI, the renderer, or IPC — clicking links, rendering embeds,
+editor behavior, main-process side effects. Reach for it before considering
+packaging.
+
+```bash
+cd apps/tangent-electron
+npm run build:dev                              # e2e runs against __build
+npx playwright test --project=Tests <name>     # note: --project=Tests, with the `=`
+```
+
+Do **not** try to verify by driving the packaged app on this machine: screen
+recording and Accessibility are not granted, so `screencapture` fails with
+"could not create image from display" and AppleScript keystrokes fail with
+error -1743. You cannot see or click the running app. And do not write test
+notes into the user's real workspace (`~/my-notes`) — the harness creates and
+deletes its own.
+
+Writing a test (see `tests-integration/external-file-links.test.ts` for a full
+example, and `TangentWindow.ts` for the helpers):
+
+- Write note files into `workspace` with `fs`, wait for the index via
+  `page.waitForFunction(... directoryStore.getWithPortablePath('FILES/x.md'))`,
+  then open them with `window.setThread({ paths: [...] })`.
+- Assert on the DOM: `page.locator('.current t-link')`, `t-embed`, and their
+  `link-state` attributes (`resolved` / `untracked` / `empty` / `error`).
+- Reach into the renderer with `page.evaluate` — `(document as any).workspace`
+  is the live `Workspace`.
+- Reach into the **main process** with `tangent.app.evaluate(({ shell, dialog })
+  => ...)`. Monkeypatching `shell.openPath`/`openExternal`/`dialog.showMessageBox`
+  there lets a test assert what the app *would* have done without anything
+  actually opening.
+- Address links by position (`.nth(i)`), not `:has-text()`: a `t-link` contains
+  its href as well as its text, so text matching picks up unintended links.
+
+After an e2e run, `__build` holds a **development** bundle. Re-run
+`npm run build` before packaging or you ship a dev build (see the warning
+above about the `dev_` workspace namespace).
+
 `npm run build:tangent-electron` (from repo root) builds the bundle + workspace
 deps but does **not** produce a runnable macOS app — use `package:test` for that.

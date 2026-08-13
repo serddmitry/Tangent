@@ -161,6 +161,43 @@ export function makeRegexPathAgnostic(regex: RegExp) {
 		regex.flags)
 }
 
+/**
+ * Determines whether a path is rooted (e.g. `/foo`, `C:\foo`, or `\\share\foo`)
+ * rather than relative to some other location.
+ */
+export function isAbsolute(aPath: string): boolean {
+	if (!aPath) return false
+	return /^([\\/]|[A-Za-z]:[\\/])/.test(aPath)
+}
+
+/**
+ * The user's home directory. This module is used in contexts without access to
+ * Node (i.e. the renderer), so the value is injected by the host environment
+ * at startup rather than read from `os`.
+ */
+let homeDirectory: string = null
+
+export function setHomeDirectory(value: string) {
+	homeDirectory = value || null
+}
+
+export function getHomeDirectory(): string {
+	return homeDirectory
+}
+
+/**
+ * Replaces a leading `~` with the user's home directory.
+ *
+ * Only a `~` that makes up the entire first segment is expanded. `~` is a legal
+ * filename character and shows up mid-path in real directories; iCloud Drive
+ * lives in `~/Library/Mobile Documents/com~apple~CloudDocs`, for example.
+ */
+export function expandHomeDirectory(aPath: string): string {
+	if (!aPath || !homeDirectory) return aPath
+	if (!/^~([\\/]|$)/.test(aPath)) return aPath
+	return join(homeDirectory, aPath.substring(1))
+}
+
 export default {
 	segment,
 	getChildPath,
@@ -168,5 +205,9 @@ export default {
 	basename,
 	extname,
 	join,
-	resolve
+	resolve,
+	isAbsolute,
+	setHomeDirectory,
+	getHomeDirectory,
+	expandHomeDirectory
 }

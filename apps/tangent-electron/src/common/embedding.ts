@@ -12,8 +12,20 @@ export enum EmbedType {
 }
 
 export function getEmbedType(target: TreeNode) {
-	if (target) {
-		const fileType = target.fileType
+	return target ? getEmbedTypeFromPath(target.fileType) : EmbedType.Invalid
+}
+
+/**
+ * Determines what kind of embed a path (or bare extension) represents.
+ *
+ * This is the extension-only counterpart to `getEmbedType()`, for targets that
+ * aren't indexed workspace nodes—notably files linked from outside of the
+ * workspace, which have no `TreeNode` to consult.
+ */
+export function getEmbedTypeFromPath(aPath: string) {
+	if (aPath) {
+		// Drop any query or fragment so cache-busted paths still match
+		const fileType = aPath.split(/[?#]/)[0]
 		if (fileType.match(imageExtensionMatch)) {
 			return EmbedType.Image
 		}

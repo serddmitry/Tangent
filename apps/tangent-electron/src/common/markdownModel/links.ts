@@ -7,7 +7,7 @@ import type { DefaultIndexStore } from 'common/indexing/IndexTreeStore'
 import { getTagPath } from 'common/indexing/TagNode'
 import NoteParser from './NoteParser'
 import { ParsingContextType, type ParsingProgram } from './parsingContext'
-import { isExternalLink } from 'common/links'
+import { fileUrlToPath, isExternalLink, isFileUrl } from 'common/links'
 
 interface ExtendedLinkInfo extends LinkInfo {
 	complete?: boolean
@@ -301,7 +301,27 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 			if (isExternalLink(link.href)) {
 				return link.href
 			}
+
+			// `file://` urls and `~/` paths name a specific location on disk.
+			// They're never relative to the linking note, so they resolve the
+			// same way with or without an origin.
+			const localPath = isFileUrl(link.href)
+				? fileUrlToPath(link.href)
+				: paths.expandHomeDirectory(link.href)
+
+			if (localPath !== link.href) {
+				const resolvedLocalPath = paths.resolve(localPath)
+				// The target may still live in the workspace (e.g. a `~/` path
+				// pointing back into it), in which case open it in Tangent.
+				return store.get(resolvedLocalPath) ?? resolvedLocalPath
+			}
+
 			if (!link.from) {
+				// A rooted path has nothing to be relative *to*, so it can still
+				// be resolved without an origin.
+				if (paths.isAbsolute(link.href)) {
+					return paths.resolve(link.href)
+				}
 				console.error('Cannot resolve a md link without "from".', link)
 				return
 			}
@@ -318,9 +338,20 @@ export function resolveLink(store: DefaultIndexStore, link: HrefFormedLink): Tre
 				}
 
 				const filePath = paths.resolve(paths.join(relativeRoot, link.href))
-				return store.get(filePath) ?? filePath
+				const node = store.get(filePath)
+				if (node) return node
+
+				// Rooted hrefs used to be silently treated as relative to the
+				// note's folder (`join` drops the leading separator). Keep that
+				// interpretation when it lands on a real file so existing notes
+				// don't break, but otherwise take the path at face value.
+				if (paths.isAbsolute(link.href)) {
+					return paths.resolve(link.href)
+				}
+
+				return filePath
 			}
-			return
+			return paths.isAbsolute(link.href) ? paths.resolve(link.href) : undefined
 		case 'tag':
 			return store.get(link.to ?? getTagPath(link.href))
 		case 'front-matter':

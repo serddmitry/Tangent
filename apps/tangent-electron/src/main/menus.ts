@@ -1,4 +1,4 @@
-import { BrowserWindow, Menu, MenuItem, shell, screen, ipcMain, type MenuItemConstructorOptions } from 'electron'
+import { BrowserWindow, Menu, MenuItem, screen, ipcMain, type MenuItemConstructorOptions } from 'electron'
 import { checkForUpdates } from './updates'
 import { isMac } from '../common/platform'
 import { mode } from './environment'
@@ -6,6 +6,7 @@ import { initDocumentation } from './documentation'
 import { getWindowHandle } from './workspaces'
 import Logger from 'js-logger'
 import type { ContextMenuTemplate } from 'common/menus'
+import { openExternalSafely } from './safeOpen'
 
 const log = Logger.get('menus')
 
@@ -75,7 +76,7 @@ ipcMain.on('menus.setMainMenu', (event, template) => {
 		else if (typeof item.link === 'string') {
 			const link = item.link
 			item.click = () => {
-				shell.openExternal(link)
+				openExternalSafely(link)
 			}
 			delete item.link
 		}

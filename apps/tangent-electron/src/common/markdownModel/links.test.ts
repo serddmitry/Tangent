@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { StructureType } from 'common/indexing/indexTypes'
-import { createContentIdMatcher, matchMarkdownLink, matchWikiLink } from './links'
+import { createContentIdMatcher, matchMarkdownLink, matchWikiLink, resolveLink } from './links'
+import { DirectoryStore, type TreeNode } from 'common/trees'
+import type { DefaultIndexStore } from 'common/indexing/IndexTreeStore'
+import { setHomeDirectory } from 'common/paths'
 
 describe('Wiki Links', () => {
 	it('Should work for the basics', () => {
@@ -371,5 +374,118 @@ describe('Content ID Matching', () => {
 	it('Only hits entire names', () => {
 		expect('My Header'.match(createContentIdMatcher('My'))).toBeFalsy()
 		expect('My'.match(createContentIdMatcher('My-header'))).toBeFalsy()
+	})
+})
+
+describe('Resolving links to files outside of the workspace', () => {
+
+	function getTestStore() {
+		const root: TreeNode = {
+			name: 'notes',
+			path: '/Users/me/notes',
+			depth: 1,
+			fileType: 'folder',
+			children: [
+				{
+					name: 'note',
+					path: '/Users/me/notes/note.md',
+					depth: 2,
+					fileType: '.md'
+				},
+				{
+					name: 'sub',
+					path: '/Users/me/notes/sub',
+					depth: 2,
+					fileType: 'folder',
+					children: [{
+						name: 'nested',
+						path: '/Users/me/notes/sub/nested.md',
+						depth: 3,
+						fileType: '.md'
+					}]
+				}
+			]
+		}
+
+		return new DirectoryStore(root) as any as DefaultIndexStore
+	}
+
+	function resolveFrom(href: string, from = '/Users/me/notes/note.md') {
+		return resolveLink(getTestStore(), { form: 'md', href, from })
+	}
+
+	beforeEach(() => {
+		setHomeDirectory('/Users/me')
+	})
+
+	afterEach(() => {
+		setHomeDirectory(null)
+	})
+
+	it('Should resolve a relative path within the workspace to a node', () => {
+		expect(resolveFrom('sub/nested.md')).toEqual(
+			expect.objectContaining({ path: '/Users/me/notes/sub/nested.md' }))
+	})
+
+	it('Should resolve a relative path outside of the workspace to a path', () => {
+		expect(resolveFrom('../Documents/spec.pdf')).toEqual('/Users/me/Documents/spec.pdf')
+	})
+
+	it('Should resolve an absolute path', () => {
+		expect(resolveFrom('/Users/me/Documents/spec.pdf')).toEqual('/Users/me/Documents/spec.pdf')
+	})
+
+	it('Should still treat an absolute path as note-relative when that hits a real file', () => {
+		// Rooted hrefs used to be silently joined onto the note's folder.
+		// Existing notes relying on that must keep working.
+		expect(resolveFrom('/sub/nested.md')).toEqual(
+			expect.objectContaining({ path: '/Users/me/notes/sub/nested.md' }))
+	})
+
+	it('Should expand a leading ~', () => {
+		expect(resolveFrom('~/Documents/spec.pdf')).toEqual('/Users/me/Documents/spec.pdf')
+	})
+
+	it('Should not expand a ~ inside of a path', () => {
+		// iCloud Drive lives in a folder with tildes in its name
+		expect(resolveFrom('~/Library/Mobile Documents/com~apple~CloudDocs/spec.pdf'))
+			.toEqual('/Users/me/Library/Mobile Documents/com~apple~CloudDocs/spec.pdf')
+		expect(resolveFrom('./com~apple~CloudDocs/spec.pdf'))
+			.toEqual('/Users/me/notes/com~apple~CloudDocs/spec.pdf')
+	})
+
+	it('Should resolve a ~ path that points back into the workspace to a node', () => {
+		expect(resolveFrom('~/notes/sub/nested.md')).toEqual(
+			expect.objectContaining({ path: '/Users/me/notes/sub/nested.md' }))
+	})
+
+	it('Should resolve a file url', () => {
+		expect(resolveFrom('file:///Users/me/Documents/spec.pdf'))
+			.toEqual('/Users/me/Documents/spec.pdf')
+	})
+
+	it('Should decode escapes in a file url', () => {
+		expect(resolveFrom('file:///Users/me/Documents/my%20spec.pdf'))
+			.toEqual('/Users/me/Documents/my spec.pdf')
+	})
+
+	it('Should resolve rooted paths without an origin', () => {
+		expect(resolveLink(getTestStore(), { form: 'md', href: '/Users/me/Documents/spec.pdf' }))
+			.toEqual('/Users/me/Documents/spec.pdf')
+		expect(resolveLink(getTestStore(), { form: 'md', href: 'file:///Users/me/spec.pdf' }))
+			.toEqual('/Users/me/spec.pdf')
+	})
+
+	it('Should not resolve a relative path without an origin', () => {
+		expect(resolveLink(getTestStore(), { form: 'md', href: '../spec.pdf' })).toBeUndefined()
+	})
+
+	it('Should leave web links alone', () => {
+		expect(resolveFrom('https://example.com/spec.pdf')).toEqual('https://example.com/spec.pdf')
+	})
+
+	it('Should not expand ~ when the home directory is unknown', () => {
+		setHomeDirectory(null)
+		expect(resolveFrom('~/Documents/spec.pdf')).toEqual('/Users/me/notes/~/Documents/spec.pdf')
 	})
 })

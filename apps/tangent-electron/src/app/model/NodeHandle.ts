@@ -87,7 +87,11 @@ export default class NodeHandle {
 					})
 				}
 				else {
+					// A path that didn't land on a workspace node: something
+					// outside of the workspace. Subscribers need to be told, or
+					// the link is stuck looking unresolved forever.
 					this.value = newValue
+					this.dirty = true
 				}
 			}
 			else {

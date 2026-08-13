@@ -58,6 +58,8 @@ export default interface WindowAPI {
 	}
 
 	system: {
+		/** The user's home directory, used to expand `~/` paths in links. */
+		homeDirectory: string
 		getAllFonts(): Promise<string[]>
 		getAllLanguages(): Promise<string[]>
 		saveImageFromClipboard(contextPath: string): Promise<string>

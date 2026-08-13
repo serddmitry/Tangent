@@ -72,6 +72,51 @@ export const pdfExtensionMatch = getExtensionRegex(pdfFileExtensions)
 export const styleFileExtensions = ['.css']
 export const styleExtensionMatch = getExtensionRegex(styleFileExtensions)
 
+/*
+ * Extensions that can cause code to run when handed to the OS shell. Opening
+ * one of these is confirmed with the user first: a note can name any file on
+ * the system, and notes are not always written by the person reading them
+ * (shared vaults, synced folders, downloaded templates).
+ *
+ * These are split by platform so that, say, opening a `.js` file from a note on
+ * macOS (where it lands in an editor) doesn't nag, while the same file on
+ * Windows (where it executes via the script host) does.
+ */
+export const sharedExecutableFileExtensions = [
+	'.sh', '.bash', '.zsh', '.fish',
+	'.pkg', '.dmg', '.jar', '.run', '.bin'
+]
+
+export const macExecutableFileExtensions = [
+	'.app', '.command', '.terminal',
+	'.workflow', '.action', '.osax', '.prefPane',
+	'.scpt', '.scptd', '.applescript',
+	// Both can point at an arbitrary url, including other schemes
+	'.webloc', '.inetloc'
+]
+
+export const windowsExecutableFileExtensions = [
+	'.exe', '.msi', '.msix', '.com', '.scr', '.cpl',
+	'.bat', '.cmd', '.ps1', '.psm1',
+	'.vbs', '.vbe', '.js', '.jse', '.wsf', '.wsh', '.hta',
+	'.reg', '.lnk', '.url', '.pif'
+]
+
+export const linuxExecutableFileExtensions = [
+	'.desktop', '.appimage'
+]
+
+export function getExecutableExtensionMatch(platform: string) {
+	switch (platform) {
+		case 'darwin':
+			return getExtensionRegex([...sharedExecutableFileExtensions, ...macExecutableFileExtensions])
+		case 'win32':
+			return getExtensionRegex([...sharedExecutableFileExtensions, ...windowsExecutableFileExtensions])
+		default:
+			return getExtensionRegex([...sharedExecutableFileExtensions, ...linuxExecutableFileExtensions])
+	}
+}
+
 // TODO: Criminally incomplete
 export const codeExtensions = [
 	'.js', '.jsx', '.ts', '.tsx',

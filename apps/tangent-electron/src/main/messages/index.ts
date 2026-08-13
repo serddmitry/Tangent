@@ -13,6 +13,8 @@ import fontList from 'font-list'
 import Logger from 'js-logger'
 import { fillDateFormat } from 'common/dates'
 
+import { openExternalSafely, openPathSafely } from 'main/safeOpen'
+
 import './queries'
 import './dictionary'
 import './themes'
@@ -490,10 +492,14 @@ ipcMain.on('showInFileBrowser', (event, path) => {
 	}
 })
 
+ipcMain.on('getHomeDirectory', event => {
+	event.returnValue = app.getPath('home')
+})
+
 ipcMain.handle('openPath', async (event, path) => {
 	try {
 		log.info('Opening path ' + path)
-		const result = await shell.openPath(path)
+		const result = await openPathSafely(path, BrowserWindow.fromWebContents(event.sender))
 
 		if (!result) return
 
@@ -515,7 +521,7 @@ ipcMain.handle('openPath', async (event, path) => {
 
 ipcMain.handle('openExternal', async (event, path) => {
 	try {
-		await shell.openExternal(path)
+		await openExternalSafely(path, BrowserWindow.fromWebContents(event.sender))
 	}
 	catch (e) {
 		log.error('Could not open', path)

@@ -1,5 +1,7 @@
 <script lang="ts">
-import { EmbedType, getEmbedType } from 'common/embedding'
+import { EmbedType, getEmbedType, getEmbedTypeFromPath } from 'common/embedding'
+import { pathToFileUrl } from 'common/links'
+import paths from 'common/paths'
 import type { HrefFormedLink } from 'common/indexing/indexTypes'
 import type { Workspace } from 'app/model'
 import type EmbedFile from 'app/model/EmbedFile'
@@ -71,6 +73,41 @@ $effect(() => {
 	}
 })
 
+/**
+ * Builds the embed form for a file that lives outside of the workspace, and so
+ * has no indexed node to describe it.
+ *
+ * Only the media types that have a viewer are accepted. The path comes out of
+ * note contents, which are not necessarily trustworthy, and there's no reason
+ * to point the embed machinery at arbitrary files on disk.
+ */
+function formForExternalPath(filePath: string): Form {
+	const src = pathToFileUrl(filePath)
+
+	switch (getEmbedTypeFromPath(filePath)) {
+		case EmbedType.Image:
+			return { mode: 'image', src }
+		case EmbedType.Audio:
+			return {
+				mode: 'audio',
+				src,
+				time: timeFromContentId(link?.content_id) || 0
+			}
+		case EmbedType.Video:
+			return {
+				mode: 'video',
+				src,
+				time: timeFromContentId(link?.content_id) || 0
+			}
+		case EmbedType.PDF:
+			let pdfForm: Form = { mode: 'pdf', src }
+			if (link?.content_id) pdfForm.content_id = link.content_id
+			return pdfForm
+		default:
+			return errorForm(`Cannot embed "${paths.basename(filePath)}". Only images, audio, video, and pdfs can be embedded from outside of the workspace.`)
+	}
+}
+
 function handleToForm(value: HandleResult): Form {
 	if (!value) {
 		return {
@@ -80,12 +117,9 @@ function handleToForm(value: HandleResult): Form {
 	}
 
 	if (typeof value === 'string') {
-		// This occurs with a bad md link
-		// Assume this is an image embed from outside the directory
-		return {
-			mode: 'image',
-			src: link.href
-		}
+		// A path that resolved to something outside of the workspace. The file
+		// is embedded where it lives; nothing is copied into the workspace.
+		return formForExternalPath(value)
 	}
 
 	if (Array.isArray(value)) {
