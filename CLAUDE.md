@@ -100,3 +100,24 @@ above about the `dev_` workspace namespace).
 
 `npm run build:tangent-electron` (from repo root) builds the bundle + workspace
 deps but does **not** produce a runnable macOS app — use `package:test` for that.
+
+## Logs
+
+`Show Logs` in the app opens the folder holding `log.txt` (`~/Library/Logs/Tangent`
+on macOS; `dev_`/`test_` prefixed for those builds). The main process owns the
+file — see `src/main/logging.ts`.
+
+The renderer has no filesystem access, so it forwards everything over the api
+(`src/app/logging.ts` → `api.log.write` → `rendererLog` in
+`src/main/messages/index.ts`), tagged `[renderer]`. That covers `js-logger`
+(`Logger.get(...)` anywhere in `common/` or `app/`), `console.error`/`console.warn`,
+uncaught exceptions, and unhandled promise rejections. Prefer `Logger.get('Thing')`
+over bare `console.log` for anything worth having after the fact: `console.log` is
+deliberately **not** forwarded.
+
+Note that the main process filters at `INFO` in production, so a renderer
+`log.debug()` will not reach a packaged build's log file.
+
+When a window stops responding to navigation, `[Session] Thread: … -> …` says
+whether the request arrived, and `[Tangent] Active session …` covers the session
+handoff that navigation depends on.

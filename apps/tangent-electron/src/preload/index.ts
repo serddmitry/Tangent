@@ -195,6 +195,11 @@ const bridge: WindowApi = {
 			ipcRenderer.invoke('openPath', path)
 		},
 	},
+	log: {
+		write(level, message) {
+			ipcRenderer.send('rendererLog', level, message)
+		}
+	},
 	edit: {
 		nativeAction(action) {
 			ipcRenderer.send('edit-native', action)

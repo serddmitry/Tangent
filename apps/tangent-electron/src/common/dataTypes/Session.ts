@@ -5,6 +5,9 @@ import { clamp } from 'common/utils'
 import TangentMap from 'common/tangentMap/TangentMap'
 import type DataType from './DataType'
 import { MapStrength } from 'common/tangentMap/MapNode'
+import Logger from 'js-logger'
+
+const log = Logger.get('Session')
 
 const extension = '.tangentsession'
 
@@ -91,6 +94,15 @@ export function fixThreadHistoryItem(item: ThreadHistoryItem): boolean {
 	return changed
 }
 
+/**
+ * A compact, human-readable description of a thread, for the log.
+ */
+function describeThreadItem(item: ThreadHistoryItem) {
+	if (!item) return '<none>'
+	const thread = item.thread?.map(n => n?.name ?? '<null>').join(' | ') ?? ''
+	return `[${thread}] @ ${item.currentNode?.name ?? '<none>'}`
+}
+
 const threadHistoryLimit = 100
 const doubleThreadHistoryLimit = threadHistoryLimit * 2
 
@@ -113,8 +125,30 @@ export class ThreadHistoryList extends PatchableList<ThreadHistoryItem, ThreadHi
 
 	protected convertToPatchItem = (item: ThreadHistoryItem): ThreadHistoryPatchItem => {
 		return {
-			thread: item.thread.map(i => this.directory.pathToPortablePath(i?.path)),
-			currentNode: this.directory.pathToPortablePath(item.currentNode?.path) ?? null
+			thread: item.thread
+				.map(i => this.nodeToPortablePathOrNull(i))
+				.filter(p => p !== null),
+			currentNode: this.nodeToPortablePathOrNull(item.currentNode)
+		}
+	}
+
+	/**
+	 * `pathToPortablePath` throws for anything it cannot represent — a path
+	 * outside the workspace, most obviously. This runs while a patch is built
+	 * for a thread that has *already* been added to the history, on the path
+	 * every single navigation takes, so a throw here would leave the session
+	 * mid-update and the views bound to it frozen. A node that cannot be written
+	 * down is dropped from the saved history instead; `fixThreadHistoryItem`
+	 * tidies up what is left when the session is read back.
+	 */
+	private nodeToPortablePathOrNull(node: TreeNode): string {
+		if (!node) return null
+		try {
+			return this.directory.pathToPortablePath(node.path) ?? null
+		}
+		catch (e) {
+			console.error('Could not convert a thread node to a portable path.', node.path, e)
+			return null
 		}
 	}
 
@@ -530,8 +564,14 @@ export default class Session extends ObjectStore {
 
 		if (!this.willItemChangeState(item)) {
 			// No need to insert duplicate history
+			log.info('Thread unchanged, ignoring:', describeThreadItem(item))
 			return
 		}
+
+		// Every navigation in the app funnels through here. When the panes stop
+		// responding, this is the line that says whether the request arrived.
+		log.info('Thread:', describeThreadItem(this._currentThreadItem.value),
+			'->', describeThreadItem(item))
 		
 		const index = reset ? 0 : this.threadIndex.value + 1
 		

@@ -3,6 +3,9 @@ import type Tangent from '../Tangent'
 import type { CommandContext, CommandOptions } from './Command'
 import WorkspaceCommand from './WorkspaceCommand'
 import type { TreeNode } from 'common/trees'
+import Logger from 'js-logger'
+
+const log = Logger.get('CloseFile')
 
 type CloseFileMode = 'current' | 'others' | 'left' | 'right'
 
@@ -57,48 +60,53 @@ export default class CloseFileCommand extends WorkspaceCommand {
 		
 		const threadFiles = tangent.thread.value
 		const index = threadFiles.indexOf(node)
-		if (index >= 0) {
-			const session = tangent.activeSession.value
-			if (!session) {
-				console.error('Cannot close files without an active session!')
-				return
-			}
+		if (index < 0) {
+			// Silently doing nothing here reads as a dead keyboard shortcut.
+			log.error('The file to close is not in the thread; nothing to do.',
+				node?.path, 'Thread:', threadFiles.map(f => f?.name).join(' | '))
+			return
+		}
 
-			if (mode === 'others') {
-				session.addThreadHistory({
-					thread: [node],
-					currentNode: node
-				})
-				return
-			}
+		const session = tangent.activeSession.value
+		if (!session) {
+			log.error('Cannot close files without an active session!')
+			return
+		}
 
-			const newFiles = threadFiles.slice()
-
-			let nextFile = node
-
-			switch (mode) {
-				case 'current':
-					newFiles.splice(index, 1)
-					nextFile = index === threadFiles.length - 1 ?
-						newFiles[newFiles.length - 1] :
-						newFiles[index]
-					break
-				case 'left':
-					newFiles.splice(0, index)
-					break
-				case 'right':
-					newFiles.splice(index + 1)
-					break
-			}
-
+		if (mode === 'others') {
 			session.addThreadHistory({
-				thread: newFiles,
-				currentNode: nextFile
+				thread: [node],
+				currentNode: node
 			})
+			return
+		}
 
-			if (newFiles.length === 0 && this.workspace.settings.openMapWhenThreadEmptied.value) {
-				this.workspace.commands.setMapFocusLevel.execute()
-			}
+		const newFiles = threadFiles.slice()
+
+		let nextFile = node
+
+		switch (mode) {
+			case 'current':
+				newFiles.splice(index, 1)
+				nextFile = index === threadFiles.length - 1 ?
+					newFiles[newFiles.length - 1] :
+					newFiles[index]
+				break
+			case 'left':
+				newFiles.splice(0, index)
+				break
+			case 'right':
+				newFiles.splice(index + 1)
+				break
+		}
+
+		session.addThreadHistory({
+			thread: newFiles,
+			currentNode: nextFile
+		})
+
+		if (newFiles.length === 0 && this.workspace.settings.openMapWhenThreadEmptied.value) {
+			this.workspace.commands.setMapFocusLevel.execute()
 		}
 	}
 

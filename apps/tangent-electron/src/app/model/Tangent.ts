@@ -23,6 +23,9 @@ import QueryInfo from 'common/dataTypes/QueryInfo'
 import QueryViewState from './nodeViewStates/QueryViewState'
 import AudioVideoViewState from './nodeViewStates/AudioVideoViewState'
 import PdfViewState from './nodeViewStates/PdfViewState'
+import Logger from 'js-logger'
+
+const log = Logger.get('Tangent')
 
 export default class Tangent {
 	_state: WorkspaceViewState
@@ -70,7 +73,20 @@ export default class Tangent {
 		}))
 
 		this.threadLenses = new CachingStore(derived(this.thread, (thread, set) => {
-			return derived(thread.map(t => this.context.getState(t)?.currentLens), lenses => {
+			const lensStores: ReadableStore<LensViewState>[] = []
+			for (const node of thread) {
+				const lens = this.context.getState(node)?.currentLens
+				if (!lens) {
+					// Svelte's `derived()` throws when handed a falsy store. That
+					// throw would land in the middle of a notification pass and take
+					// every pane in the thread down with it, so drop the node here.
+					log.error('No lens available for thread node; it cannot be shown:', node?.path)
+					continue
+				}
+				lensStores.push(lens)
+			}
+
+			return derived(lensStores, lenses => {
 				const result: LensViewState[] = []
 				let hasRepresented = false
 				for (const lens of lenses) {
@@ -171,14 +187,20 @@ export default class Tangent {
 				(oldFile as DataFile).dropFile()
 			}
 			if (file) {
+				// `loadData()` only resolves once the main process has sent the
+				// file's contents back. Until it does, `activeSession` still points
+				// at the previous session, so log both ends of the handoff.
+				log.info('Active session file set to', file.name, '- loading')
 				startupTasks.push((file as DataFile).loadData<Session>()
 					.then(session => {
+						log.info('Active session loaded:', file.name)
 						this.activeSession.set(session)
 					})
-					.catch(e => console.error('Session loading failed', e))
+					.catch(e => log.error('Session loading failed for', file.name, e))
 				)
 			}
 			else {
+				log.info('Active session file cleared')
 				this.activeSession.set(null)
 			}
 		}))
@@ -261,6 +283,7 @@ export default class Tangent {
 			const nextHistoryItem = session.optionsToThreadItem(options)
 			if (session === this.activeSession.value && !session.willItemChangeState(nextHistoryItem)) {
 				// No need to push state or create a new session
+				log.info('Thread update would not change the current state; ignoring.')
 				return
 			}
 
@@ -274,6 +297,11 @@ export default class Tangent {
 				: 1000 * 60 * 60 * 8 // 8 Hours
 
 			if (diff >= newSessionDelta) {
+				// Nothing below touches the current session: the thread the user
+				// asked for is applied to the *new* session, and only once its file
+				// has loaded. Until then the views keep showing the old thread.
+				log.info('Last session activity was',
+					Math.round(diff / 1000 / 60), 'minutes ago; starting a new session.')
 
 				const tangentInfo = this.tangentInfo.value
 				const store = this._state.workspace.directoryStore
@@ -312,7 +340,8 @@ export default class Tangent {
 			}
 		}
 		else {
-			console.error('Cannot set current node without an active session!')
+			log.error('Cannot set current node without an active session!'
+				+ ' Navigation will do nothing until one loads.')
 		}
 	}
 

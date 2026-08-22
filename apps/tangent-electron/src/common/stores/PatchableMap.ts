@@ -3,6 +3,9 @@ import type { RawValueMode } from './ObjectStore';
 import { Patchable } from "./Patchable";
 import { PatchableStore } from "./PatchableStore";
 import { deepEqual } from 'fast-equals';
+import Logger from 'js-logger';
+
+const log = Logger.get('stores');
 
 export interface PatchableMapRawPatch<P> {
 	[key: string]: P
@@ -52,6 +55,31 @@ export abstract class PatchableMap<K, V, P> extends PatchableStore<Map<K, V>, Pa
 		}
 	}
 
+	/**
+	 * Converts a key for publication, returning null if it cannot be represented.
+	 *
+	 * A change under an unrepresentable key cannot be saved — there is nothing to
+	 * file it under — but that is not a reason to abandon the change itself. The
+	 * map has already been mutated by the time a patch is built, and letting the
+	 * conversion throw its way out of `set`/`delete` strands the caller mid-update.
+	 */
+	private tryConvertKeyToPatch(key: K): string {
+		let patchKey: string = null
+		try {
+			patchKey = this.convertKeyToPatch(key)
+		}
+		catch (e) {
+			log.error('A map key could not be converted for patching.', e)
+			return null
+		}
+
+		if (patchKey == null) {
+			log.warn('A map key converted to nothing; this change will not be saved.', key)
+			return null
+		}
+		return patchKey
+	}
+
 	protected observeItem(key: K, value: V) {
 		const existing = this._value.get(key)
 		if (!this.options.observeItems) return existing
@@ -67,15 +95,18 @@ export abstract class PatchableMap<K, V, P> extends PatchableStore<Map<K, V>, Pa
 
 		if (needsNewSub && Patchable.isPatchable(value)) {
 			this.itemUnsubs.set(key, value.observePatch((patch, reverse) => {
+				const patchKey = this.tryConvertKeyToPatch(key)
+				if (patchKey == null) return
+
 				this.publishPatch({
 					_patch_type: PatchableMapPatchType.Update,
 					patch: {
-						[this.convertKeyToPatch(key)]: patch
+						[patchKey]: patch
 					}
 				}, {
 					_patch_type: PatchableMapPatchType.Update,
 					patch: {
-						[this.convertKeyToPatch(key)]: reverse
+						[patchKey]: reverse
 					}
 				})
 			}))
@@ -104,7 +135,9 @@ export abstract class PatchableMap<K, V, P> extends PatchableStore<Map<K, V>, Pa
 		this.notifyObservers()
 
 		if (!this.isPatching) {
-			const patchKey = this.convertKeyToPatch(key)
+			const patchKey = this.tryConvertKeyToPatch(key)
+			if (patchKey == null) return
+
 			this.publishPatch({
 				_patch_type: PatchableMapPatchType.Set,
 				patch: {
@@ -139,7 +172,9 @@ export abstract class PatchableMap<K, V, P> extends PatchableStore<Map<K, V>, Pa
 		this.notifyObservers()
 
 		if (!this.isPatching) {
-			let patchKey = this.convertKeyToPatch(key)
+			let patchKey = this.tryConvertKeyToPatch(key)
+			if (patchKey == null) return
+
 			this.publishPatch({
 				_patch_type: PatchableMapPatchType.Delete,
 				patch: {
@@ -166,7 +201,9 @@ export abstract class PatchableMap<K, V, P> extends PatchableStore<Map<K, V>, Pa
 		let reverse = {}
 
 		for (const key of this._value.keys()) {
-			const patchKey = this.convertKeyToPatch(key)
+			const patchKey = this.tryConvertKeyToPatch(key)
+			if (patchKey == null) continue
+
 			patch[patchKey] = null
 			reverse[patchKey] = this.convertValueToPatch(this._value.get(key))
 		}

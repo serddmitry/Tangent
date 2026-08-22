@@ -1,4 +1,7 @@
 import { swapRemove } from '@such-n-such/core'
+import Logger from 'js-logger'
+
+const log = Logger.get('stores')
 
 export function rawOrStoreValue<T>(value: T | ReadableStore<T>) {
 	if (value instanceof ReadableStore) return value.value
@@ -26,7 +29,16 @@ export class ReadableStore<T> {
 
 	notifyObservers(oldValue?: T) {
 		for (let observer of this.observers) {
-			observer(this.value, oldValue)
+			// Observers are independent of one another. Letting one throw its way
+			// out of this loop starves every observer after it, which historically
+			// meant the model advanced while the views bound to it stayed frozen
+			// on the last value that made it all the way through.
+			try {
+				observer(this.value, oldValue)
+			}
+			catch (e) {
+				log.error('A store observer threw. Other observers were still notified.', e)
+			}
 		}
 	}
 

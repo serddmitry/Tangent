@@ -5,6 +5,23 @@ import Logger from 'js-logger'
 
 const log = Logger.get('TangentMap')
 
+/**
+ * `pathToPortablePath` throws for anything it cannot represent. Map patches are
+ * built while the map is being mutated, on the path every navigation takes, so
+ * a throw strands the caller mid-update. Whatever cannot be written down is
+ * dropped from the patch instead.
+ */
+function pathToPortablePathOrNull(directory: DirectoryLookup, path: string): string {
+	if (!path) return null
+	try {
+		return directory.pathToPortablePath(path) ?? null
+	}
+	catch (e) {
+		log.error('Could not convert a map node to a portable path.', path, e)
+		return null
+	}
+}
+
 export interface MapNodeCreationOptions {
 	isRoot?: boolean,
 	strength?: MapStrength,
@@ -73,7 +90,7 @@ export class MapNodeStore extends PatchableMap<TreeNode, MapNode, any> {
 	}
 
 	protected convertKeyToPatch(key: TreeNode) {
-		return this.directory.pathToPortablePath(key?.path)
+		return pathToPortablePathOrNull(this.directory, key?.path)
 	}
 
 	convertPatchKeyToKey(patchKey: string) {
@@ -123,6 +140,6 @@ export class MapNodeReference extends PatchableStore<MapNode, string> {
 	}
 
 	protected convertToPatch(node: MapNode) {
-		return this.sourceStore.directory.pathToPortablePath(node?.node?.value?.path)
+		return pathToPortablePathOrNull(this.sourceStore.directory, node?.node?.value?.path)
 	}
 }

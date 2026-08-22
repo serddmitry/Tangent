@@ -12,6 +12,7 @@ import fontList from 'font-list'
 
 import Logger from 'js-logger'
 import { fillDateFormat } from 'common/dates'
+import { logLevelNames, type LogLevelName } from 'common/logging'
 
 import { openExternalSafely, openPathSafely } from 'main/safeOpen'
 
@@ -494,6 +495,17 @@ ipcMain.on('showInFileBrowser', (event, path) => {
 
 ipcMain.on('getHomeDirectory', event => {
 	event.returnValue = app.getPath('home')
+})
+
+const rendererLog = Logger.get('renderer')
+ipcMain.on('rendererLog', (event, level: LogLevelName, message: string) => {
+	// The renderer has already formatted the message; anything else would have
+	// to survive structured cloning, which errors and tree nodes do not.
+	if (!logLevelNames.includes(level)) {
+		rendererLog.warn('Received a renderer log at an unknown level', level, message)
+		return
+	}
+	rendererLog[level](message)
 })
 
 ipcMain.handle('openPath', async (event, path) => {

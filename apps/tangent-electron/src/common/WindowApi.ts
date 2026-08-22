@@ -6,6 +6,7 @@ import type { ContextMenuTemplate } from './menus'
 import type { QueryResult } from './indexing/queryResults'
 import type { QueryParseResult } from '@such-n-such/tangent-query-parser'
 import type { UrlData } from './urlData'
+import type { LogLevelName } from './logging'
 
 export interface SelectPathOptions {
 	title?: string
@@ -108,6 +109,15 @@ export default interface WindowAPI {
 		showInFileBrowser(path: string)
 		/** Open a path in the default format */
 		openPath(path: string)
+	}
+
+	log: {
+		/**
+		 * Forwards an already-formatted message to Tangent's log file.
+		 * The renderer has no filesystem access; the main process owns the log.
+		 * See the `Show Logs` command for where the file lives.
+		 */
+		write(level: LogLevelName, message: string)
 	}
 
 	edit: {
