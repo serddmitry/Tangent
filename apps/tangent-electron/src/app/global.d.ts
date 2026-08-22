@@ -11,3 +11,8 @@ declare namespace svelte.JSX {
         onfinalize?: (event: CustomEvent<DndEvent> & {target: EventTarget & T}) => void;
     }
 }
+
+/** The short git commit the bundle was built from. Injected by webpack. */
+declare const __GIT_COMMIT__: string;
+/** When the bundle was built, as an ISO string. Injected by webpack. */
+declare const __BUILD_DATE__: string;

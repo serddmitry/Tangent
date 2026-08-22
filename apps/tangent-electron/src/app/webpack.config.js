@@ -1,10 +1,25 @@
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TsConfigPathsPlugin = require('tsconfig-paths-webpack-plugin')
+const webpack = require('webpack');
+const { execSync } = require('child_process');
 const path = require('path');
 
 // TODO: Make this not a copy paste
 const mode = process.env.NODE_ENV || 'production';
 const prod = mode === 'production';
+
+// Stamped into the bundle so the About screen can identify the exact build
+function gitCommit() {
+	try {
+		return execSync('git rev-parse --short HEAD', {
+			cwd: __dirname,
+			stdio: ['ignore', 'pipe', 'ignore']
+		}).toString().trim();
+	}
+	catch (e) {
+		return 'unknown';
+	}
+}
 
 module.exports = {
 	entry: {
@@ -111,6 +126,10 @@ module.exports = {
 	plugins: [
 		new MiniCssExtractPlugin({
 			filename: '[name].css'
+		}),
+		new webpack.DefinePlugin({
+			__GIT_COMMIT__: JSON.stringify(gitCommit()),
+			__BUILD_DATE__: JSON.stringify(new Date().toISOString())
 		})
 	],
 	// Good source maps in prod, faster-ish maps in dev: https://webpack.js.org/configuration/devtool/#devtool

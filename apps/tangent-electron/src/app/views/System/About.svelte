@@ -7,6 +7,11 @@ const workspace: Workspace = getContext('workspace')
 function openDocumentation() {
 	workspace.api.documentation.open('Getting Started')
 }
+
+const buildDate = new Date(__BUILD_DATE__).toLocaleString(undefined, {
+	dateStyle: 'medium',
+	timeStyle: 'short'
+})
 </script>
 
 <main>
@@ -14,6 +19,7 @@ function openDocumentation() {
 		
 	</p>
 	<p class="version">v{workspace.version}</p>
+	<p class="build">{__GIT_COMMIT__} &middot; {buildDate}</p>
 	<p>
 		<span class="tangent">Tangent</span> is made by 
 		<a target="_blank" rel="noreferrer" href="http://tangentnotes.com/About">Taylor Hadden</a>.
@@ -69,6 +75,14 @@ main {
 	text-align: center;
 	color: var(--deemphasizedTextColor);
 	font-style: italic;
+}
+
+.build {
+	margin-top: -.75em;
+	text-align: center;
+	color: var(--deemphasizedTextColor);
+	font-size: smaller;
+	font-family: var(--codeFontFamily);
 }
 
 ul {
