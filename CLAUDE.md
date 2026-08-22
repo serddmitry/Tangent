@@ -14,6 +14,7 @@ From `apps/tangent-electron`:
 
 ```bash
 # Quit any running Tangent FIRST (see below), then:
+rm -f __build/documentation.zip   # only needed if Documentation/ changed (see below)
 npm run build          # REQUIRED: rebuilds the webpack bundle into __build
 npm run package:test   # electron-builder --dir -c.mac.identity=null
 xattr -dr com.apple.quarantine dist/mac-arm64/Tangent.app  # unsigned → clear Gatekeeper
@@ -43,6 +44,40 @@ the user's real one (e.g. `~/my-notes`).
 
 `package:test` is the fast packaging path: `--dir` skips the `.dmg` and
 `-c.mac.identity=null` skips code-signing — the two slow stages of a full build.
+
+## Version & changelog
+
+The fork's version lives in `apps/tangent-electron/package.json` and uses a
+prerelease of the *next* upstream patch: `0.12.3-dima.1`, `-dima.2`, and so on.
+It has to sort **above** the last version you ran — `0.12.2-dima.1` would sort
+*below* `0.12.2` and break the "what's new" logic. `dima` contains neither
+"alpha" nor "beta", so the update-channel filter in `Changelog.svelte` and the
+prerelease check in `Workspace.ts` both leave it alone.
+
+Bump per *build you hand to the user*, not per commit. For each bump:
+
+1. Set the new version in `apps/tangent-electron/package.json`.
+2. Add `Documentation/Changelog/v<version>.md` describing the user-visible
+   changes. Match the existing files' style: `+` for additions, `-` for fixes,
+   `//` for an aside, `[[wiki links]]` into the docs.
+3. Package (remembering the `rm -f __build/documentation.zip` above).
+
+On launch the app compares its version against `last_version.txt` in userData
+and auto-opens the changelog for everything in `>lastVersion <=thisVersion`
+(`getRecentChanges()` in `src/main/documentation.ts`) — so a bump plus a
+changelog file means the new build greets you with exactly what changed. `Open
+Changelog` in the command palette shows it on demand.
+
+**`buildDocumentation()` caches.** `build/index.js` skips rebuilding
+`__build/documentation.zip` entirely if the file already exists, so an edit
+under `Documentation/` silently never reaches the app until you delete it. The
+extraction side is version-keyed and handles itself: `initDocumentation()`
+re-extracts whenever the app version differs from the installed docs'
+`version.txt`.
+
+Settings → About shows the version plus the git commit and build time the
+bundle was built from (injected by `DefinePlugin` in
+`src/app/webpack.config.js`) — that identifies an exact build without a bump.
 
 Avoid `package:mac` / `release` unless you actually need a signed,
 distributable `.dmg`: they code-sign every embedded binary and build a DMG,
