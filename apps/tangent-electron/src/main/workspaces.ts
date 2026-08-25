@@ -64,6 +64,43 @@ export function validateWorkspaceForHandleFilepath(handle: WindowHandle, filepat
 }
 
 export const contentsMap: Map<Electron.WebContents, WindowHandle> = new Map()
+
+/**
+ * The workspaces that were open the last time a window was closed.
+ *
+ * On mac, the app outlives its windows, and a window's handle is dropped as it
+ * closes. Without this, an app with no open windows has no idea what was being
+ * worked in, and both re-activation and shutdown fall back to nothing.
+ */
+let lastOpenWorkspaces: string[] = []
+
+export function getOpenWorkspacePaths() {
+	const openWorkspaces: string[] = []
+	for (let windowHandle of contentsMap.values()) {
+		if (windowHandle.assignedWorkspacePath) {
+			openWorkspaces.push(windowHandle.assignedWorkspacePath)
+		}
+	}
+	return openWorkspaces
+}
+
+/**
+ * Records the currently open workspaces so that they can be restored once all
+ * windows have closed. Call this _before_ a closing window's handle is dropped.
+ */
+export function rememberOpenWorkspaces() {
+	const openWorkspaces = getOpenWorkspacePaths()
+	if (openWorkspaces.length) {
+		lastOpenWorkspaces = openWorkspaces
+	}
+	return openWorkspaces
+}
+
+export function getLastOpenWorkspaces() {
+	// A workspace can be forgotten while the app is running; don't resurrect it
+	return lastOpenWorkspaces.filter(path => workspaceMap.get(path) !== undefined)
+}
+
 export function getWindowHandle(key: BrowserWindow | Electron.WebContents): WindowHandle {
 	if (key instanceof BrowserWindow) {
 		return contentsMap.get(key.webContents)
@@ -90,7 +127,6 @@ export async function saveAndCloseWorkspaces() {
 	
 	// Save open workspace info
 	const knownWorkspaces = []
-	const openWorkspaces = []
 
 	for (let pair of workspaceMap) {
 		if (pair[0]) {
@@ -98,10 +134,12 @@ export async function saveAndCloseWorkspaces() {
 		}
 	}
 
-	for (let windowHandle of contentsMap.values()) {
-		if (windowHandle.assignedWorkspacePath) {
-			openWorkspaces.push(windowHandle.assignedWorkspacePath)
-		}
+	// Windows drop their handles as they close. When the app is quit with no
+	// windows left (normal on mac), fall back to what was open last so that
+	// the next launch still restores the workspace.
+	const openWorkspaces = getOpenWorkspacePaths()
+	if (!openWorkspaces.length) {
+		openWorkspaces.push(...getLastOpenWorkspaces())
 	}
 
 	let promises: Promise<any>[] = []

@@ -23,7 +23,8 @@ import {
 	getWorkspacesInfoPath, 
 	saveAndCloseWorkspaces,
 	findClosestWorkspace,
-	hasStartedWorkspaceShutdown
+	hasStartedWorkspaceShutdown,
+	getLastOpenWorkspaces
 } from './workspaces'
 
 import Logger from 'js-logger'
@@ -283,7 +284,22 @@ Tangent ${app.getVersion()} Launched With Arguments:`, process.argv)
 		// This can happen before initialization is complete and windows can be created,
 		// so check against that.
 		if (isInitialized && BrowserWindow.getAllWindows().length === 0) {
-			createWindow();
+			// The app outlives its windows on mac. Reopen whatever was last open
+			// rather than dropping the user onto the workspace selection screen.
+			const lastOpenWorkspaces = getSettings().startupBehavior.value == 'restore'
+				? getLastOpenWorkspaces()
+				: []
+
+			if (lastOpenWorkspaces.length) {
+				for (let workspacePath of lastOpenWorkspaces) {
+					// Start loading the workspace as the window spins up
+					getWorkspace(workspacePath)
+					createWindow(workspacePath)
+				}
+			}
+			else {
+				createWindow()
+			}
 		}
 	});
 

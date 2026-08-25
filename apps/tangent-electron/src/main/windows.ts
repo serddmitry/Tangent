@@ -6,7 +6,7 @@ import { isMac } from '../common/platform'
 import { disableRendererActions } from './menus'
 import { checkForUpdatesThrottled } from './updates'
 import WindowHandle from './WindowHandle'
-import { contentsMap, workspaceMap } from './workspaces'
+import { contentsMap, rememberOpenWorkspaces, workspaceMap } from './workspaces'
 import { ipcMain } from 'electron'
 import { cleanMenuTemplate } from '../common/menus'
 import { getSettings } from './settings'
@@ -113,6 +113,10 @@ export function createWindow(assignedWorkspace?: string) {
 		if (handle) {
 			// Save out the window state
 			addShutDownTask(handle.close())
+
+			// Take note of what was open while this handle still exists so that
+			// the app can find its way back to these workspaces
+			rememberOpenWorkspaces()
 
 			if (isMac || contentsMap.size > 1) {
 				// On windows/linux do not flush the last window.

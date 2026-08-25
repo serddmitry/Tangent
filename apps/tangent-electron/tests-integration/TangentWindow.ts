@@ -30,6 +30,13 @@ export default class TangentWindow {
 		await this.page.waitForSelector('main.WorkspaceView')
 	}
 
+	getWorkspacePath() {
+		return this.page.evaluate(() => {
+			const workspace = (document as any).workspace as Workspace
+			return workspace?.directoryStore?.files?.path
+		})
+	}
+
 	locateCurrentNoteTitle() {
 		return this.page.locator('.current .noteEditor header .title')
 	}
