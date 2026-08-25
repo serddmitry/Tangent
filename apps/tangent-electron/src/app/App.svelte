@@ -99,6 +99,11 @@ $: {
 	}
 }
 
+$: underlineLinks = workspace?.settings.underlineLinks
+$: {
+	document.body.classList.toggle('underline-links', !!$underlineLinks)
+}
+
 $: accentHue = workspace?.settings.accentHue
 $: accentSaturation = workspace?.settings.accentSaturation
 $: noteFont = workspace?.settings.noteFont

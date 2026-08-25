@@ -214,6 +214,12 @@ export default class Settings extends ObjectStore {
 		defaultValue: true
 	})
 
+	underlineLinks = new Setting<boolean>({
+		name: 'Underline Links',
+		description: 'When enabled, links in notes are always underlined instead of only when hovered.',
+		defaultValue: false
+	})
+
 	// Navigation
 	linkClickPaneBehavior = new Setting<string>({
 		name: 'Links & Panes',

@@ -68,6 +68,11 @@
 	--untrackedLinkColor: #6d00c6;
 	--emptyLinkTextColor: #9b321f;
 
+	/* Inline `code` spans. Teal — the one clear gap left by the link-state
+	   colors (green resolved / blue external / violet untracked / red empty),
+	   so code never gets mistaken for any kind of link. */
+	--inlineCodeColor: #0f7d83;
+
 	--selectionBackgroundColor: var(--accentBackgroundColor);
 	--keySelectionBackgroundColor: rgba(0, 0, 0, .1);
 	--selectionPressedBackgroundColor: rgba(0, 0, 0, .2);
@@ -140,6 +145,8 @@
 	--externalLinkColor: rgb(0, 150, 250);
 	--untrackedLinkColor: #a864e0;
 	--emptyLinkTextColor: #d65a49;
+
+	--inlineCodeColor: #3bbcc4;
 
 	--selectionBackgroundColor: rgba(255, 255, 255, .16);
 	--keySelectionBackgroundColor: rgba(255, 255, 255, .08);

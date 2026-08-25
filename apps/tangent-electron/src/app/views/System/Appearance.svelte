@@ -34,6 +34,7 @@ let settings = workspace.settings
 		<SettingView setting={settings.sidebarHoverHotspot} />
 		<SettingView setting={settings.panelSettingsHoverHotspot} />
 		<SettingView setting={settings.showPromptInstructions} />
+		<SettingView setting={settings.underlineLinks} />
 	</div>
 </main>
 

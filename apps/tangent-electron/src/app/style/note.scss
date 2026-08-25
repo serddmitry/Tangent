@@ -364,7 +364,7 @@ article.note {
 		line-height: 1em; // This fixes an issue where the code was shifting other text down slightly
 
 		&:not(.hidden) {
-			color: var(--accentTextColor);
+			color: var(--inlineCodeColor);
 
 			&:not(.revealed) {
 				&.afterSpace {
@@ -751,6 +751,14 @@ t-link {
 			padding: 0 .2em;
 		}
 	}
+}
+
+// When the "Underline Links" setting is on, links get a persistent underline
+// rather than only surfacing one on hover (see the note-link-click rules below).
+// Excludes hashtags — underlining tags reads as clutter — and the hidden bracket
+// / URL segments, so only the visible link label is underlined.
+body.underline-links t-link .link_internal:not(.hidden):not(.hashtag) {
+	text-decoration: underline;
 }
 
 t-link[form="wiki"] {
