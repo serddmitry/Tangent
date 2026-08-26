@@ -4,8 +4,12 @@ import chalk from 'chalk'
 
 import type { TreeNode } from 'common/trees'
 import type { ObjectStore } from 'common/stores'
+import { FileSaveResult } from 'common/FileSaveResult'
 
 import WorkspaceTreeNode from './WorkspaceTreeNode'
+
+// Re-exported so existing `import { FileSaveResult } from './File'` sites keep working.
+export { FileSaveResult }
 
 import Logger from 'js-logger'
 
@@ -19,12 +23,6 @@ export interface FileWatcher {
 	postUserMessage(type: string, ...args)
 
 	sendPatches?: boolean
-}
-
-export enum FileSaveResult {
-	Failed = -1,
-	Identical = 0,
-	Success = 1
 }
 
 export default class File extends WorkspaceTreeNode {
@@ -170,6 +168,37 @@ Appologies for the inconvenience.`)
 			}
 		}
 		return FileSaveResult.Identical
+	}
+
+	/**
+	 * A blocking write used only on the exit path, where the renderer is being
+	 * torn down and cannot await an async save (see `File.saveFileSync` in the
+	 * renderer). Mirrors `setContents` but uses `fs.writeFileSync` so the bytes
+	 * are on disk before the calling `sendSync` IPC returns.
+	 */
+	setContentsSync(contents: string): FileSaveResult {
+		if (typeof contents !== 'string') {
+			log.error('Invalid contents sync-sent to ' + chalk.red(this.path))
+			return FileSaveResult.Failed
+		}
+		if (contents === null || contents === undefined || this.contents === contents) {
+			return FileSaveResult.Identical
+		}
+		this.contents = contents
+		try {
+			let toWrite = contents
+			if (os.EOL !== '\n') {
+				toWrite = toWrite.replace(/\n/g, os.EOL)
+			}
+			fs.writeFileSync(this.path, toWrite, 'utf8')
+			this.state = 'loaded'
+			log.info('sync-saved on exit ' + chalk.green(this.path))
+			return FileSaveResult.Success
+		}
+		catch (err) {
+			log.error('Could not sync-write', this.path, err)
+			return FileSaveResult.Failed
+		}
 	}
 
 	// The file has been changed from somewhere else

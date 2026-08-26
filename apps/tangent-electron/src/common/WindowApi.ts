@@ -7,6 +7,7 @@ import type { QueryResult } from './indexing/queryResults'
 import type { QueryParseResult } from '@such-n-such/tangent-query-parser'
 import type { UrlData } from './urlData'
 import type { LogLevelName } from './logging'
+import type { FileSaveResult } from './FileSaveResult'
 
 export interface SelectPathOptions {
 	title?: string
@@ -101,8 +102,18 @@ export default interface WindowAPI {
 		/** No longer watcha a file for changes. */
 		closeFile(filepath: string) // Stop receiving file changes
 		
-		/** Update a file with new contents. */
-		updateFile(filepath: string, content: string | unknown)
+		/**
+		 * Update a file with new contents. Resolves with whether the write
+		 * actually reached disk so the caller can retry a rejected save instead
+		 * of dropping the edit.
+		 */
+		updateFile(filepath: string, content: string | unknown): Promise<FileSaveResult>
+		/**
+		 * Blocking write for the exit path only. `beforeunload` cannot await, so
+		 * this uses synchronous IPC to guarantee the bytes are on disk before the
+		 * renderer unloads. Returns the result directly.
+		 */
+		updateFileSync(filepath: string, content: string): FileSaveResult
 		/** Update the workspace index from unsaved file contents. */
 		updateFileIndex(filepath: string, content: string)
 		/** Show the file or folder in the native file browser. */

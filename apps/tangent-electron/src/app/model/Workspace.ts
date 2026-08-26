@@ -468,6 +468,15 @@ export default class Workspace extends EventDispatcher {
 	onReceiveFileContents(path: string, content: unknown) {
 		let file = this.directoryStore.get(path)
 		if (file && file instanceof File) {
+			// Never let an incoming disk copy overwrite unsaved in-memory edits.
+			// On a workspace reload the main process re-sends every open file's
+			// on-disk contents; if the editor still holds unsaved changes, that
+			// stale copy would silently wipe them (this is how the reload after a
+			// dropped save erased the visible text).
+			if (file.isDirty) {
+				console.warn('Ignoring incoming contents for dirty file to avoid clobbering unsaved edits:', path)
+				return
+			}
 			file.setFileContent(content)
 			file.notifyChanged()
 		}
@@ -802,6 +811,10 @@ export default class Workspace extends EventDispatcher {
 	shutdown() {
 		for (const item of this.directoryStore.allContents()) {
 			if (item instanceof File) {
+				// Flush dirty content with a blocking write first: this runs from
+				// `beforeunload`, which can't await the async save in `unloadFile`,
+				// so an ordinary save would race (and lose to) workspace teardown.
+				item.saveFileSync()
 				item.unloadFile()
 			}
 		}

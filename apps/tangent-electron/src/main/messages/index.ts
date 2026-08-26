@@ -431,29 +431,80 @@ ipcMain.on('closeFile', (event, filepath) => {
 	}
 })
 
-ipcMain.on('updateFile', (event, filepath, content) => {
+// Returns a FileSaveResult so the renderer can tell a rejected write from a
+// successful one and keep the file dirty (and retry) instead of dropping the
+// edit. Previously this was a fire-and-forget `.on`, so a save that failed
+// during workspace teardown looked identical to success on the renderer side.
+ipcMain.handle('updateFile', async (event, filepath, content): Promise<FileSaveResult> => {
 	const windowHandle = getWindowHandle(event.sender)
 	const workspace = validateWorkspaceForHandleFilepath(windowHandle, filepath)
-	
+
 	if (workspace) {
-		workspace.updateFileContents(filepath, content, windowHandle).then(success => {
-			if (success === FileSaveResult.Failed) {
-				windowHandle.postUserMessage(
-					'error',
-					'File Write Error',
-					`Could not write "${filepath}" to disk.
+		const success = await workspace.updateFileContents(filepath, content, windowHandle)
+		if (success === FileSaveResult.Failed) {
+			windowHandle.postUserMessage(
+				'error',
+				'File Write Error',
+				`Could not write "${filepath}" to disk.
 Please copy your note elsewhere to avoid data loss and restart Tangent.
 Consider reaching out to the developer for support.
 Appologies for the inconvenience.`)
-			}
-		})
+		}
+		return success
 	}
 	else {
-		// If we get here, that's bad
+		// The window's workspace handle is gone (e.g. mid-teardown). Report the
+		// failure so the renderer keeps the content dirty and retries rather
+		// than silently losing it.
 		log.error('A window tried to save a file outside of an open workspace', {
 			filepath
 		})
 		windowHandle?.postUserMessage('error', 'A file was attempted to be updated outside of the workspace and was not updated. ' + filepath)
+		return FileSaveResult.Failed
+	}
+})
+
+// Synchronous, blocking save used only on the exit path (`File.saveFileSync` in
+// the renderer, driven from `beforeunload`). `beforeunload` cannot await async
+// IPC, so a normal `updateFile` there races — and loses to — workspace/handle
+// teardown, which is exactly how unsaved edits were lost. This handler does a
+// blocking write and, crucially, does NOT depend on the window handle still
+// owning a live workspace: it locates the workspace containing the path from
+// the workspace map directly, so it survives the teardown ordering.
+ipcMain.on('updateFileSync', (event, filepath, content) => {
+	if (typeof content !== 'string') {
+		event.returnValue = FileSaveResult.Failed
+		return
+	}
+
+	// Prefer the handle's own workspace, but fall back to any open workspace
+	// that contains the path — the handle may already be detached at exit
+	// (which is the whole reason this sync path exists). Check inline rather
+	// than via `validateWorkspaceForHandleFilepath`, which would log a scary
+	// error on that entirely expected fallback.
+	const windowHandle = getWindowHandle(event.sender)
+	let workspace = windowHandle?.workspace?.containsPath(filepath) ? windowHandle.workspace : null
+	if (!workspace) {
+		for (const candidate of workspaceMap.values()) {
+			if (candidate && candidate.containsPath(filepath)) {
+				workspace = candidate
+				break
+			}
+		}
+	}
+
+	if (!workspace) {
+		log.error('Sync save could not find an open workspace for', filepath)
+		event.returnValue = FileSaveResult.Failed
+		return
+	}
+
+	try {
+		event.returnValue = workspace.updateFileContentsSync(filepath, content)
+	}
+	catch (err) {
+		log.error('Sync save failed for', filepath, err)
+		event.returnValue = FileSaveResult.Failed
 	}
 })
 

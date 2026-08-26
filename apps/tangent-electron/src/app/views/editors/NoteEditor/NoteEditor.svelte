@@ -127,6 +127,13 @@ let lastFocusLevel = focusLevel
 let isInitializing = false
 let allowSelectionScroll = true
 let saveTimeout = null
+// Timestamp of the oldest change not yet written to disk. The autosave is a
+// 5s idle debounce that resets on every keystroke, so a long continuous burst
+// of typing would otherwise never flush. This caps how long unsaved content
+// can sit in memory regardless of typing cadence.
+let oldestUnsavedChange = 0
+const MAX_UNSAVED_INTERVAL = 15000
+const SAVE_DEBOUNCE = 5000
 let indexTimeout = null
 let hasSelection = false
 let justScrolled = true
@@ -484,6 +491,7 @@ function updateAnnotations(annotations: Annotation[], index=0) {
 }
 
 export function saveFile() {
+	oldestUnsavedChange = 0
 	note.saveFile()
 }
 
@@ -664,9 +672,21 @@ function onEditorChange(changeEvent: EditorChangeEvent) {
 
 		if (saveTimeout) {
 			window.clearTimeout(saveTimeout)
+			saveTimeout = null
 		}
 		if (note.isDirty) {
-			saveTimeout = window.setTimeout(saveFile, 5000)
+			const now = Date.now()
+			if (oldestUnsavedChange === 0) {
+				oldestUnsavedChange = now
+			}
+			// Force a save once content has gone unsaved for too long, even if the
+			// user is still typing steadily; otherwise re-arm the idle debounce.
+			if (now - oldestUnsavedChange >= MAX_UNSAVED_INTERVAL) {
+				saveFile()
+			}
+			else {
+				saveTimeout = window.setTimeout(saveFile, SAVE_DEBOUNCE)
+			}
 		}
 
 		workspace.dispatchEvent(new Event('editing'))

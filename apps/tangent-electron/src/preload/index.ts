@@ -180,7 +180,10 @@ const bridge: WindowApi = {
 			ipcRenderer.send('closeFile', filepath)
 		},
 		updateFile(filepath, content) {
-			ipcRenderer.send('updateFile', filepath, content)
+			return ipcRenderer.invoke('updateFile', filepath, content)
+		},
+		updateFileSync(filepath, content) {
+			return ipcRenderer.sendSync('updateFileSync', filepath, content)
 		},
 		updateFileIndex(filepath, content) {
 			ipcRenderer.send('updateFileIndex', filepath, content)

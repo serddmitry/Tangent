@@ -796,6 +796,20 @@ export default class Workspace {
 		this.removeTreeRetainingVirtuals(nodeToDelete)
 	}
 
+	/**
+	 * Blocking counterpart to `updateFileContents`, used only on the exit path.
+	 * Skips the async indexer update (the process is shutting down) so the whole
+	 * thing can complete synchronously before the renderer unloads.
+	 */
+	updateFileContentsSync(filepath: string, contents: string): FileSaveResult {
+		const file = this.getFile(filepath)
+		if (!file) {
+			fileLog.error('Tried to sync-update a file that was not in the store', filepath)
+			return FileSaveResult.Failed
+		}
+		return file.setContentsSync(contents)
+	}
+
 	async updateFileContents(filepath: string, contents: string, updater?: WindowHandle): Promise<FileSaveResult> {
 		let file = this.getFile(filepath)
 		if (file) {

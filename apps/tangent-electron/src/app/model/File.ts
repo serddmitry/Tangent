@@ -1,9 +1,14 @@
 import paths from 'common/paths'
 import type { TreeNode } from 'common/trees'
+import { FileSaveResult } from 'common/FileSaveResult'
 import type Workspace from './Workspace'
 import WorkspaceTreeNode from './WorkspaceTreeNode'
 
 export type FileLoadState = 'unloaded' | 'loading' | 'loaded' | 'new'
+
+// How long to wait before retrying a save that the main process rejected
+// (e.g. because the workspace was momentarily torn down).
+const SAVE_RETRY_DELAY = 3000
 
 export default abstract class File extends WorkspaceTreeNode {
 	loadCount: number
@@ -75,9 +80,16 @@ export default abstract class File extends WorkspaceTreeNode {
 			this.onUnloaded()
 			this.loadState = 'unloaded'
 
+			if (this.saveRetryTimeout != null) {
+				clearTimeout(this.saveRetryTimeout)
+				this.saveRetryTimeout = null
+			}
+
 			this.api.closeFile(this.path)
 		}
 	}
+
+	private saveRetryTimeout: ReturnType<typeof setTimeout> = null
 
 	saveFile() {
 		if (this.isDirty && this.isReady) {
@@ -86,21 +98,75 @@ export default abstract class File extends WorkspaceTreeNode {
 				return
 			}
 
+			// Clear dirty optimistically; a rejected write re-arms it (below) so
+			// the edit is retried rather than silently dropped.
+			this.isDirty = false
+			if (this.loadState === 'new') {
+				this.loadState = 'loaded'
+			}
+
 			// TODO: An attempt to find why/when this is happening
 			if (!content) {
 				console.error('Almost wrote empty file', this)
 			}
 			else {
 				console.log('saving', this.name)
-				this.api.updateFile(this.path, content)
-			}
-			
-			this.isDirty = false
-			if (this.loadState === 'new') {
-				this.loadState = 'loaded'
+				Promise.resolve(this.api.updateFile(this.path, content))
+					.then(result => {
+						if (result === FileSaveResult.Failed) {
+							this.onSaveRejected()
+						}
+					})
+					.catch(err => {
+						console.error('Save failed for', this.path, err)
+						this.onSaveRejected()
+					})
 			}
 
 			this.notifyChanged()
+		}
+	}
+
+	/**
+	 * A save the main process refused (e.g. the workspace was torn down under a
+	 * closing window). Mark the file dirty again and schedule a retry so the
+	 * content isn't lost. A newer edit may already have re-dirtied the file and
+	 * queued its own save; the retry timer is guarded so we don't stack them.
+	 */
+	private onSaveRejected() {
+		if (!this.isDirty) {
+			this.isDirty = true
+			this.notifyChanged()
+		}
+		if (this.saveRetryTimeout != null) return
+		this.saveRetryTimeout = setTimeout(() => {
+			this.saveRetryTimeout = null
+			if (this.isDirty && this.isReady) {
+				this.saveFile()
+			}
+		}, SAVE_RETRY_DELAY)
+	}
+
+	/**
+	 * Blocking save for the exit path (see `Workspace.shutdown`). Unlike
+	 * `saveFile`, this waits for the write to land on disk before returning, so
+	 * unsaved edits survive Cmd+Q / window close. Only clears the dirty flag if
+	 * the write actually succeeded.
+	 */
+	saveFileSync() {
+		if (this.isDirty && this.isReady) {
+			const content = this.getFileContent()
+			if (typeof content !== 'string' || !content) {
+				return
+			}
+			const result = this.api.updateFileSync(this.path, content)
+			if (result !== FileSaveResult.Failed) {
+				this.isDirty = false
+				if (this.loadState === 'new') {
+					this.loadState = 'loaded'
+				}
+				this.notifyChanged()
+			}
 		}
 	}
 
