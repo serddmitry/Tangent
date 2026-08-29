@@ -88,7 +88,13 @@ export default class NoteFile extends File implements TreeNode {
 	}
 
 	onUnloaded() {
-		this.lines = null
+		// Clear the cached content *directly*. Going through the `lines` setter
+		// would mark the file dirty (the new value differs from the old), and
+		// since deb1c54 a dirty file has its incoming disk contents ignored in
+		// Workspace.onReceiveFileContents — so an untouched note that merely got
+		// unloaded would be stranded empty on reopen, its real text on disk
+		// refused as a "clobber" of nonexistent unsaved edits.
+		this._lines = null
 	}
 
 	get isReady(): boolean {
