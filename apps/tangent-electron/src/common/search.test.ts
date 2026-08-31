@@ -2,7 +2,7 @@ import { describe, test, expect, it } from 'vitest'
 
 import type { TreeNode } from './trees'
 import { IndexData, StructureType } from './indexing/indexTypes'
-import { bestMatchForSearch, buildFuzzySegementMatcher, buildMatcher, compareNodeSearch, nodeSearchResults } from './search'
+import { bestMatchForSearch, buildFuzzySegementMatcher, buildMatcher, compareNodeSearch, nodeSearchResults, orderTreeNodesForSearch, type SegmentSearchNodePair } from './search'
 
 describe('Match building', () => {
 	it('should split characters by whitespace', () => {
@@ -148,6 +148,43 @@ describe('Match ordering', () => {
 			'Projects/Immortals/Immortals',
 			'Projects/Immortals/the other thing'
 		])
+	})
+})
+
+describe('Matchless ordering (empty [[ query)', () => {
+	// Nodes named so that alphabetical order is the opposite of recency,
+	// letting these tests prove the sort is by modified time, not by name.
+	const node = (name: string, modified: Date): SegmentSearchNodePair => ({
+		node: { name, modified } as TreeNode,
+		match: undefined
+	})
+
+	it('Should order same-day notes by exact modified time, newest first', () => {
+		const nodes = [
+			node('Apple', new Date(2026, 7, 31, 12, 0, 0)),   // earlier today
+			node('Zebra', new Date(2026, 7, 31, 12, 30, 0))   // just now
+		]
+		nodes.sort(orderTreeNodesForSearch)
+		expect(nodes.map(n => n.node.name)).toEqual(['Zebra', 'Apple'])
+	})
+
+	it('Should order across days by modified date, newest first', () => {
+		const nodes = [
+			node('Zebra', new Date(2026, 7, 30, 23, 0, 0)),   // yesterday
+			node('Apple', new Date(2026, 7, 31, 1, 0, 0))     // today
+		]
+		nodes.sort(orderTreeNodesForSearch)
+		expect(nodes.map(n => n.node.name)).toEqual(['Apple', 'Zebra'])
+	})
+
+	it('Should fall back to name when modified times are identical', () => {
+		const when = new Date(2026, 7, 31, 12, 0, 0)
+		const nodes = [
+			node('Zebra', when),
+			node('Apple', when)
+		]
+		nodes.sort(orderTreeNodesForSearch)
+		expect(nodes.map(n => n.node.name)).toEqual(['Apple', 'Zebra'])
 	})
 })
 

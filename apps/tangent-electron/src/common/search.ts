@@ -289,6 +289,13 @@ export function orderTreeNodesForSearch(a: SegmentSearchNodePair, b: SegmentSear
 		if (dayA !== dayB) {
 			return dayB - dayA
 		}
+
+		// Within the same day, break ties by the full timestamp so the
+		// most-recently-modified note wins instead of falling to alphabetical
+		const msDiff = timeB.getTime() - timeA.getTime()
+		if (msDiff !== 0) {
+			return msDiff
+		}
 	}
 	else if (timeA) {
 		return -1
