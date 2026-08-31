@@ -2,4 +2,8 @@ node_modules/
 __build/
 dist/
 
+# Playwright integration-test output
+test-results/
+playwright-report/
+
 *.env
