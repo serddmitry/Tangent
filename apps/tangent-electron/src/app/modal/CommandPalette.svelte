@@ -137,7 +137,7 @@ function updateOptions(input: string) {
 				}))
 				showShortcuts = true
 			}
-			nodes.sort((a, b) => orderTreeNodesForSearch(a, b))
+			nodes.sort((a, b) => orderTreeNodesForSearch(a, b, true, workspace.viewState.tangent.getLastOpenedOrder))
 			if (!text) {
 				nodes = nodes.slice(0, 16)
 			}

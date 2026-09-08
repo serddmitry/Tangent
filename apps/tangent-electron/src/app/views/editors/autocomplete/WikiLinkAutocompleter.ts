@@ -282,7 +282,7 @@ export default class WikiLinkAutocompleter implements AutocompleteHandler {
 				node, match: undefined
 			}))
 		}
-		nodes.sort(orderTreeNodesForSearch)
+		nodes.sort((a, b) => orderTreeNodesForSearch(a, b, true, this.workspace.viewState.tangent.getLastOpenedOrder))
 		if (!pathText) {
 			// Limit the results to something reasonable
 			nodes = nodes.slice(0, 10)

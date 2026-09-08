@@ -188,6 +188,40 @@ describe('Matchless ordering (empty [[ query)', () => {
 	})
 })
 
+describe('Last-opened ordering', () => {
+	// A note whose modified date makes it *lose* on the modified-time tiebreak,
+	// so these tests prove ordering is driven by last-opened, not modified date.
+	const node = (name: string, path: string, modified: Date): SegmentSearchNodePair => ({
+		node: { name, path, modified } as TreeNode,
+		match: undefined
+	})
+
+	it('Should order most-recently-opened first, ahead of modified time', () => {
+		const older = node('Apple', 'a.md', new Date(2026, 7, 31, 12, 0, 0))  // newest modified
+		const newer = node('Zebra', 'z.md', new Date(2026, 7, 30, 12, 0, 0))  // oldest modified
+		const opened = new Map<string, number>([['a.md', 1], ['z.md', 2]])
+		const getLastOpened = (n: TreeNode) => opened.get(n.path) ?? 0
+
+		const nodes = [older, newer]
+		nodes.sort((a, b) => orderTreeNodesForSearch(a, b, true, getLastOpened))
+		// z.md was opened most recently, so it wins despite its older modified date
+		expect(nodes.map(n => n.node.name)).toEqual(['Zebra', 'Apple'])
+	})
+
+	it('Should place never-opened notes after opened ones, ordered by modified time', () => {
+		const opened = node('Opened', 'o.md', new Date(2026, 7, 29, 12, 0, 0))   // oldest modified
+		const freshA = node('FreshOld', 'fa.md', new Date(2026, 7, 30, 12, 0, 0))
+		const freshB = node('FreshNew', 'fb.md', new Date(2026, 7, 31, 12, 0, 0)) // newest modified
+		const openMap = new Map<string, number>([['o.md', 5]])
+		const getLastOpened = (n: TreeNode) => openMap.get(n.path) ?? 0
+
+		const nodes = [freshA, freshB, opened]
+		nodes.sort((a, b) => orderTreeNodesForSearch(a, b, true, getLastOpened))
+		// Opened note first; the two never-opened notes fall back to modified time
+		expect(nodes.map(n => n.node.name)).toEqual(['Opened', 'FreshNew', 'FreshOld'])
+	})
+})
+
 describe('Alias Searching', () => {
 	test('Alias Names', () => {
 		const testNode: TreeNode = {

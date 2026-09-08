@@ -245,7 +245,14 @@ export function bestMatchForSearch(node: TreeNode, searchMatch: RegExp, root?: T
 	return bestMatch
 }
 
-export function orderTreeNodesForSearch(a: SegmentSearchNodePair, b: SegmentSearchNodePair, directoryRelative=true) {
+/**
+ * Given a node, returns a monotonically-increasing recency value for the last
+ * time it was opened/focused (higher = more recent), or 0 if it never was.
+ * Used to order search results most-recently-opened first.
+ */
+export type LastOpenedLookup = (node: TreeNode) => number
+
+export function orderTreeNodesForSearch(a: SegmentSearchNodePair, b: SegmentSearchNodePair, directoryRelative=true, getLastOpened?: LastOpenedLookup) {
 	if (a.match && b.match) {
 		const result = compareNodeSearch(a.match, b.match, directoryRelative)
 		// Fractional differences occur only when we've fallen back to ratios
@@ -272,6 +279,16 @@ export function orderTreeNodesForSearch(a: SegmentSearchNodePair, b: SegmentSear
 		}
 	}
 	
+	// Most-recently-opened/focused notes come first. Notes never opened share a
+	// value of 0 and fall through to the modified-date ordering below.
+	if (getLastOpened) {
+		const openA = getLastOpened(a.node)
+		const openB = getLastOpened(b.node)
+		if (openA !== openB) {
+			return openB - openA
+		}
+	}
+
 	const timeA = a.node.modified
 	const timeB = b.node.modified
 

@@ -53,6 +53,15 @@ export default class Tangent {
 		sessionTimeout: -1
 	}
 
+	// Tracks the order in which notes were opened/focused so search popups
+	// (the `[[` autocomplete and Cmd+O) can list most-recently-opened first.
+	// A monotonic counter is used rather than a timestamp so that history
+	// restored on startup (which carries no per-visit time) can be seeded in
+	// the same ordering as live navigation.
+	private lastOpenedByPath = new Map<string, number>()
+	private openSequence = 0
+	private seededSessions = new WeakSet<Session>()
+
 	constructor(state: WorkspaceViewState, tangentName: string) {
 		this._state = state
 		this.tangentName = tangentName
@@ -155,6 +164,46 @@ export default class Tangent {
 				}
 			}
 		]
+
+		// Seed recency from a session's restored history the moment it becomes
+		// active, then record every subsequent navigation as it happens.
+		this.activeSession.subscribe(session => this.seedLastOpenedFromSession(session))
+		this.currentNode.subscribe(node => this.recordOpened(node))
+	}
+
+	/**
+	 * Records that a note was just opened/focused, giving it the newest recency
+	 * value. Called for every navigation via the `currentNode` subscription.
+	 */
+	private recordOpened(node: TreeNode) {
+		if (!node?.path) return
+		this.lastOpenedByPath.set(node.path, ++this.openSequence)
+	}
+
+	/**
+	 * Walks a session's restored thread history oldest-first so that the most
+	 * recently visited notes end up with the highest recency values, matching
+	 * how live navigation is recorded. Runs once per session.
+	 */
+	private seedLastOpenedFromSession(session: Session) {
+		if (!session || this.seededSessions.has(session)) return
+		this.seededSessions.add(session)
+
+		for (const item of session.threadHistory.value) {
+			const node = item?.currentNode
+			if (node?.path) {
+				this.lastOpenedByPath.set(node.path, ++this.openSequence)
+			}
+		}
+	}
+
+	/**
+	 * The recency value for a node (higher = more recently opened, 0 = never).
+	 * Passed to `orderTreeNodesForSearch` so popups list recents first. Bound so
+	 * it can be handed off directly as a callback.
+	 */
+	getLastOpenedOrder = (node: TreeNode): number => {
+		return (node?.path && this.lastOpenedByPath.get(node.path)) || 0
 	}
 
 	async startup() {
