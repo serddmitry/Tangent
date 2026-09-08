@@ -608,11 +608,18 @@ function onEditorChange(changeEvent: EditorChangeEvent) {
 			}
 		}
 
-		if (invalidChange || edited) {
+		// `edited` covers annotations we shifted/removed here, but a content edit
+		// that doesn't touch any annotation still causes the note-change
+		// subscription to rebuild the search annotations from scratch, and that
+		// rebuild would re-select the current match and yank the caret onto it
+		// (e.g. typing a space right after a word whose prefix is the active
+		// match). Re-commit the (unchanged) annotations in that case too so the
+		// guard below is armed and the caret stays where the user is typing.
+		if (invalidChange || edited || (contentChanged && editInfo)) {
 			ignoreNextAnnotationUpdate = true
 			state.setAnnotations(newAnnotations)
 		}
-		
+
 		allowAnnotationReactions = true
 	}
 
