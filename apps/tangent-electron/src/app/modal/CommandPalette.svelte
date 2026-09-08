@@ -400,6 +400,33 @@ function shouldShowShortcut(action: PaletteAction) {
 	return action.shortcuts?.length > 0
 }
 
+function paneDirectionLabel(direction: NavigationData['direction']) {
+	switch (direction) {
+		case 'out': return 'Open in new pane'
+		case 'replace': return 'Replace current pane'
+		case 'in': return 'Open in pane to the left'
+	}
+	return 'Open'
+}
+
+// The direction a modifier produces depends on the "Links & Panes" setting,
+// so derive the labels from the same function navigation uses.
+function buildPaneHints(_settingValue: string) {
+	const directionFor = (shiftKey: boolean, altKey: boolean) =>
+		getLinkDirectionFromEvent({ shiftKey, altKey } as any, workspace)
+	return [
+		{ shortcut: 'Enter', label: 'Go to file' },
+		{ shortcut: 'Mod+Enter', label: paneDirectionLabel(directionFor(false, false)) },
+		{ shortcut: 'Shift+Enter', label: paneDirectionLabel(directionFor(true, false)) },
+		{ shortcut: 'Alt+Enter', label: paneDirectionLabel(directionFor(false, true)) }
+	]
+}
+
+$: paneHints = buildPaneHints(workspace.settings.linkClickPaneBehavior.value)
+$: selectedOption = options[selectedIndex]
+$: showPaneShortcuts = workspace.settings.showPromptInstructions.value
+	&& !!(selectedOption?.node || selectedOption?.ref)
+
 </script>
 
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -446,6 +473,16 @@ function shouldShowShortcut(action: PaletteAction) {
 			{/if}
 		{/if}
 	{/if}
+	{#if showPaneShortcuts}
+		<div class="paneShortcuts">
+			{#each paneHints as hint}
+				<div class="hint">
+					<span class="key">{@html shortcutHtmlString(hint.shortcut)}</span>
+					<span class="label">{hint.label}</span>
+				</div>
+			{/each}
+		</div>
+	{/if}
 	{#if workspace.settings.showPromptInstructions.value && (showShortcuts === 'query' || !searchInput)}
 		<div class="instructions">
 			{#if !searchInput}
@@ -481,6 +518,44 @@ function shouldShowShortcut(action: PaletteAction) {
 	button {
 		width: 100%;
 		text-align: left;
+	}
+}
+
+.paneShortcuts {
+	margin-top: .75em;
+	padding-top: .6em;
+	border-top: 1px solid var(--borderColor);
+	display: flex;
+	flex-wrap: wrap;
+	gap: .3em 1.2em;
+	font-size: 85%;
+	color: var(--deemphasizedTextColor);
+
+	.hint {
+		display: flex;
+		align-items: center;
+		gap: .4em;
+	}
+
+	.key {
+		flex-shrink: 0;
+		color: var(--textColor);
+		font-weight: 600;
+
+		:global(.group) {
+			display: inline-block;
+			padding: .05em .35em;
+			border-radius: 4px;
+			background-color: var(--buttonBackgroundColor);
+			border: 1px solid var(--borderColor);
+		}
+		:global(.group + .group) {
+			margin-left: .15em;
+		}
+	}
+
+	.label {
+		white-space: nowrap;
 	}
 }
 
