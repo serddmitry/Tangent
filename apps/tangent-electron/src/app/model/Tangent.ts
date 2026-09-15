@@ -198,6 +198,22 @@ export default class Tangent {
 	}
 
 	/**
+	 * Keeps recency attached to a note across a rename/move. Recency is keyed by
+	 * path, so without this a note renamed after being opened (e.g. a freshly
+	 * created note the moment you give it a title) would look "never opened" and
+	 * sink below notes you actually opened earlier. Called from `onTreeChange`.
+	 */
+	private updateOpenedPaths(change: TreeChange) {
+		if (!change.moved) return
+		for (const item of change.moved) {
+			const order = this.lastOpenedByPath.get(item.oldPath)
+			if (order === undefined) continue
+			this.lastOpenedByPath.delete(item.oldPath)
+			this.lastOpenedByPath.set(item.node.path, order)
+		}
+	}
+
+	/**
 	 * The recency value for a node (higher = more recently opened, 0 = never).
 	 * Passed to `orderTreeNodesForSearch` so popups list recents first. Bound so
 	 * it can be handed off directly as a callback.
@@ -395,6 +411,8 @@ export default class Tangent {
 	}
 
 	onTreeChange(change: TreeChange) {
+		this.updateOpenedPaths(change)
+
 		// No need to update the active session; it should be in the "open sessions" list.
 		for (const session of this.openSessions.value) {
 			session.onTreeChange(change)
