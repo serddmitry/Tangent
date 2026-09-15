@@ -589,6 +589,12 @@ export default class Workspace extends EventDispatcher {
 
 		for (const handle of this.activeHandles) {
 			handle.checkTreeChange(change)
+			if (handle.dirty) {
+				// Re-resolve so the handle picks up the newly-added node rather
+				// than pushing its stale value (e.g. a virtual node that this
+				// creation just replaced). Mirrors the `onTreeChange` handler.
+				handle.resolve()
+			}
 			handle.pushChangesIfDirty()
 		}
 
@@ -659,10 +665,17 @@ export default class Workspace extends EventDispatcher {
 				this.api.file.openPath(resolution)
 				return
 			}
-			else if (resolution && !Array.isArray(resolution)) {
+			else if (resolution && !Array.isArray(resolution) && !(resolution.meta?.virtual && link.form === 'wiki')) {
 				target = resolution
 			}
 			else if (link.form === 'wiki') {
+				// A wiki link resolves either to nothing or to a *virtual* node —
+				// a placeholder that only exists to track inbound links. Either
+				// way, following the link should materialize a real file so that
+				// it lives on disk and behaves like any other note (e.g. renaming
+				// it rewrites the links that point at it). `createNewFile` picks
+				// up the existing virtual node and turns it into a real file,
+				// preserving its inbound links.
 				console.log('Link goes nowhere, creating new file', navigationData)
 
 				const newFile = this.commands.createNewFile.execute({

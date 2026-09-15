@@ -524,6 +524,14 @@ export default class Workspace {
 				existingFile.addObserver(handle)
 			}
 
+			if (!meta?.virtual) {
+				// The caller asked for a real file. Persist an empty file to disk
+				// so the node is backed by an actual file; otherwise it is real in
+				// the index but absent on disk, and a later rename's `fs.rename`
+				// would fail (leaving the file — and links to it — broken).
+				this.trackActivePromise(ensureTask.then(() => existingFile.initializeContents()))
+			}
+
 			this.sendTreeChangeExceptFor({
 				changed: [ shallowCopyTreeNodeWithoutChildren(existingFile) ]
 			}, handle)
