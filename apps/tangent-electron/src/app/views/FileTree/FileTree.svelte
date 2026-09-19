@@ -434,7 +434,6 @@ function onKeydown(event: KeyboardEvent, item: TreeNode) {
 	width: 100%;
 
 	background-color: transparent;
-	transition: background-color .2s;
 
 	font-size: 90%;
 

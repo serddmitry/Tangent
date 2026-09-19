@@ -8,6 +8,7 @@ import CreateNewFileCommand from './CreateNewFile'
 import CreateNewFolderCommand from './CreateNewFolder'
 import ShowCommandPaletteCommand from './ShowCommandPalette'
 import ToggleSidebarCommand from './ToggleSidebar'
+import FocusLeftSidebarCommand from './FocusLeftSidebar'
 import ShowInFileBrowserCommand from './ShowInFileBrowser'
 import type WorkspaceCommand from './WorkspaceCommand'
 import MoveFileCommand from './MoveFileCommand'
@@ -55,6 +56,7 @@ function createAllCommands(workspace: Workspace) {
 		openWorkspace: new OpenWorkspaceCommand(workspace),
 
 		toggleLeftSidebar: new ToggleSidebarCommand(workspace),
+		focusLeftSidebar: new FocusLeftSidebarCommand(workspace),
 		openPreferences: new OpenPreferencesCommand(workspace),
 		openDocumenation: new OpenDocumentationCommand(workspace),
 
@@ -269,7 +271,7 @@ function createAllCommands(workspace: Workspace) {
 		}),
 
 		setHeader1: new NoteLinePrefixCommand(workspace, {
-			shortcut: 'Mod+1',
+			shortcut: 'Mod+Alt+1',
 			label: 'Header 1',
 			tooltip: 'Changes the currently selected line(s) to a 1st level header.',
 			prefix: '# '

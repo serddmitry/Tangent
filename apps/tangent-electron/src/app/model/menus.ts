@@ -316,6 +316,10 @@ export function buildMainMenu(workspace: Workspace): MenuItemConstructorOptions[
 					label: 'Show Left Sidebar',
 					command: cmds.toggleLeftSidebar,
 				},
+				{
+					label: 'Focus Left Sidebar',
+					command: cmds.focusLeftSidebar,
+				},
 				{ type: 'separator' },
 				{ command: cmds.zoomIn },
 				{ command: cmds.zoomOut },
