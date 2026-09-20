@@ -75,6 +75,21 @@ extraction side is version-keyed and handles itself: `initDocumentation()`
 re-extracts whenever the app version differs from the installed docs'
 `version.txt`.
 
+**But version-keying misses folded edits.** If you change `Documentation/`
+(e.g. append to a changelog) *without* bumping the version — folding into a
+version the user has already run — `version.txt` already matches, so
+`initDocumentation()` skips re-extraction and the app keeps serving the stale
+docs. After such a build, force a refresh by clearing the cached version marker
+before launching (the app re-extracts the whole folder on the next start):
+
+```bash
+rm -f ~/Library/Application\ Support/Tangent/Documentation/version.txt
+```
+
+(That `Documentation/` path is not `dev_`/`test_`-prefixed — `getDocumentationPath()`
+uses `userData` directly.) A real version bump avoids this entirely — the version
+mismatch re-extracts on its own.
+
 Settings → About shows the version plus the git commit and build time the
 bundle was built from (injected by `DefinePlugin` in
 `src/app/webpack.config.js`) — that identifies an exact build without a bump.
