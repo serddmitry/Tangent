@@ -61,8 +61,6 @@ export function updateMermaidStyle(darkMode: boolean) {
 		excludeBkgColor: darkMode ? 'black' : 'var(--backgroundColor)',
 	}
 
-	console.log(themeVariables)
-
 	mermaid.initialize({
 		startOnLoad: false,
 		theme: 'base',

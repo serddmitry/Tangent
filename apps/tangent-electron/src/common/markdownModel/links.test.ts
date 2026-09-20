@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { StructureType } from 'common/indexing/indexTypes'
 import { createContentIdMatcher, matchMarkdownLink, matchWikiLink, resolveLink } from './links'
+import { safeHeaderLine } from './header'
 import { DirectoryStore, type TreeNode } from 'common/trees'
 import type { DefaultIndexStore } from 'common/indexing/IndexTreeStore'
 import { setHomeDirectory } from 'common/paths'
@@ -178,7 +179,8 @@ describe('Wiki Links', () => {
 				start: 0,
 				end: 15,
 				form: 'wiki',
-				href: 'Unclosed Link'
+				href: 'Unclosed Link',
+				complete: false
 			})
 		})
 
@@ -188,7 +190,8 @@ describe('Wiki Links', () => {
 				start: 0,
 				end: 15,
 				form: 'wiki',
-				href: 'Unclosed link'
+				href: 'Unclosed link',
+				complete: false
 			})
 		})
 	})
@@ -371,9 +374,23 @@ describe('Content ID Matching', () => {
 		expect('My Long Header'.match(createContentIdMatcher('my-long_header'))).toBeTruthy()
 	})
 
+	it('Can match to adjacent space-like items', () => {
+		expect('My - Separated Header'.match(createContentIdMatcher('My - Separated Header'))).toBeTruthy()
+		expect('My - Separated Header'.match(createContentIdMatcher('My-Separated-Header'))).toBeTruthy()
+		expect('My - Separated Header'.match(createContentIdMatcher('my_separated_header'))).toBeTruthy()
+	})
+
+	it('Trims padded wiki link header ids before matching safe header lines', () => {
+		const link = matchWikiLink('[[note#My Header | label]]')
+		const matcher = createContentIdMatcher(link.content_id)
+
+		expect(safeHeaderLine('## My Header').match(matcher)).toBeTruthy()
+	})
+
 	it('Only hits entire names', () => {
 		expect('My Header'.match(createContentIdMatcher('My'))).toBeFalsy()
 		expect('My'.match(createContentIdMatcher('My-header'))).toBeFalsy()
+		expect(' My Header '.match(createContentIdMatcher('My Header'))).toBeFalsy()
 	})
 })
 

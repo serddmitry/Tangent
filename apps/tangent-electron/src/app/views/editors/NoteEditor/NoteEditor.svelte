@@ -532,11 +532,18 @@ function centerOnEditorRange(range: EditorRange, scrollTime?: number) {
 function ensureRangeInView(range: EditorRange, buffer=50, scrollTime?: number) {
 	if (!container || !editor) return
 
+	function getMode(range: EditorRange) {
+		if (range[0] === range[1]) return 'show'
+		if (range[0] < range[1]) return 'show-end'
+		return 'show-start'
+	}
+
 	setScrollTo({
 		container,
 		target: editor.getBounds(range),
 		duration: scrollTime,
-		marginY: buffer
+		marginY: buffer,
+		modeY: getMode(range)
 	})
 }
 
@@ -655,8 +662,8 @@ function onEditorChange(changeEvent: EditorChangeEvent) {
 			note.realizeFile()
 		}
 
-		if (selectionChanged) {
-			if (container && focusLevel >= FocusLevel.Typewriter && !isEditorMouseDown) {
+		if (selectionChanged && !isEditorMouseDown) {
+			if (container && focusLevel >= FocusLevel.Typewriter) {
 				if (changeEvent.doc.selection) {
 					// Microtask means that layout is finished and the scroll appears to happen seemlessly
 					queueMicrotask(() => centerOnEditorRange(changeEvent.doc.selection))
@@ -719,16 +726,29 @@ function applyFocusDecorations(doc: TextDocument) {
 	if (selection) {
 		let lines = doc.getLinesAt(selection)
 
+		let isValidLine: (line: Line) => boolean = null
+
 		if (lines.length && focusLevel === FocusLevel.Paragraph) {
-			// Extend focus to adjacent qualifying lines
-			function isValidLine(line: Line) {
+			isValidLine = (line: Line) => {
 				const attr = line.attributes
 				return (!attr.empty && !attr.whitespace)
 					|| attr.code
 					|| attr.front_matter
 					|| attr.math
 			}
+		}
+		else if (lines.length && focusLevel > FocusLevel.Paragraph) {
+			// These are always extended when in focus
+			isValidLine = (line: Line) => {
+				const attr = line.attributes
+				return attr.code
+					|| attr.front_matter
+					|| attr.math
+			}
+		}
 
+		if (isValidLine) {
+			// Extend focus to adjacent qualifying lines
 			const first = lines[0]
 			if (isValidLine(first)) {
 				const linesToAdd: Line[] = []
@@ -1523,13 +1543,6 @@ function updateCodeBlockSizing(pre: HTMLElement, context: CodeBlockSizingContext
 		// This needs to be taken into account
 		const preMarginLeft = getPixelValue(preStyle.marginLeft)
 		const preMarginRight = getPixelValue(preStyle.marginRight)
-
-		console.log({
-			preClientWidth: pre.clientWidth,
-			contentWidth: context.editorContentWidth,
-			preMarginLeft, preMarginRight
-		})
-		
 
 		// Need to revert the old margin
 		const baseWidth = pre.clientWidth + preMarginLeft + preMarginRight
