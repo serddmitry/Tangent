@@ -249,6 +249,18 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 	// Forward along for containers
 	(event as any).treeNode = state.node
 }
+
+function errorMessage(error: unknown): string {
+	if (error instanceof Error) return error.message
+	return String(error)
+}
+
+function onPaneError(state: NodeViewState, error: unknown) {
+	// `console.error` is forwarded into the main-process log file (see
+	// src/app/logging.ts), so a pane that fails to render leaves a trace instead
+	// of just silently swapping to the fallback.
+	console.error('Pane render failed for', state?.node?.path, error)
+}
 </script>
 
 <main bind:this={container}
@@ -274,22 +286,40 @@ function onWheel(event: WheelEvent, state: NodeViewState) {
 			}}
 			on:introend={() => clipDuringFly = false}
 			animate:flip={{ duration: 200 }}>
-			<div class="viewContainer"
-				style={`left: ${($focusLevel <= FocusLevel.Thread || $states.length > 1) ? collapsedWidth : 0}px;`}>
-				<NodeViewSelector
-					{state}
-					{isCurrent}
-					extraTop={36}
-					focusLevel={Math.max($focusLevel, FocusLevel.Thread)}
-					onNavigate={handleNavigate}
+			<!--
+				A render error inside a pane (e.g. a keyed `{#each}` handed a
+				duplicate key, which Svelte throws on) must not escape to the root.
+				An uncaught render throw leaves Svelte's flush machinery mid-update,
+				after which every store-driven view in the window silently stops
+				updating — navigation, New Note and Cmd+W all appear dead until
+				restart. The boundary keeps the blast radius to this one pane.
+			-->
+			<svelte:boundary onerror={error => onPaneError(state, error)}>
+				<div class="viewContainer"
+					style={`left: ${($focusLevel <= FocusLevel.Thread || $states.length > 1) ? collapsedWidth : 0}px;`}>
+					<NodeViewSelector
+						{state}
+						{isCurrent}
+						extraTop={36}
+						focusLevel={Math.max($focusLevel, FocusLevel.Thread)}
+						onNavigate={handleNavigate}
+					/>
+				</div>
+				<ThreadViewVerticalTitleBar
+					node={state.node}
+					{tangent}
+					{collapsedWidth}
+					supportDirty={$supportDirty}
 				/>
-			</div>
-			<ThreadViewVerticalTitleBar
-				node={state.node}
-				{tangent}
-				{collapsedWidth}
-				supportDirty={$supportDirty}
-			/>
+
+				{#snippet failed(error, reset)}
+					<div class="paneError" style={`left: ${($focusLevel <= FocusLevel.Thread || $states.length > 1) ? collapsedWidth : 0}px;`}>
+						<h1>This note couldn't be displayed.</h1>
+						<p>{errorMessage(error)}</p>
+						<button class="subtle" on:click={reset}>Try again</button>
+					</div>
+				{/snippet}
+			</svelte:boundary>
 		</div>
 	{:else}
 		<div class="empty">
@@ -394,6 +424,35 @@ main.threadFixedWidth .nodeContainer {
 	right: 0;
 
 	overflow: hidden;
+}
+
+.paneError {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	right: 0;
+
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: .5em;
+	padding: 2em;
+	text-align: center;
+
+	color: var(--deemphasizedTextColor);
+
+	h1 {
+		font-size: 110%;
+		font-weight: normal;
+	}
+
+	p {
+		font-family: var(--codeFontFamily, monospace);
+		font-size: 85%;
+		max-width: 40ch;
+		opacity: .8;
+	}
 }
 
 .empty {

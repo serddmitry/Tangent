@@ -126,6 +126,24 @@ describe('Notes With', () => {
 	})
 })
 
+describe('Or unions dedupe equivalent results', () => {
+	// A file that satisfies more than one clause of an `or` used to appear once
+	// per clause. Each clause hands back its own reference object, so identity
+	// set-union left the duplicate in place — and a path-keyed `{#each}` rendering
+	// it throws `each_key_duplicate`, which freezes the renderer.
+	test("Notes named 'note' or with 'note' lists each file once", async () => {
+		const result = await solveQuery("Notes named 'note' or with 'note'")
+		const paths = resultToNodePaths(result)
+
+		// "Note with Keyword.md" matches by name *and* by content ("This note …").
+		expect(paths).toContain('Note with Keyword.md')
+		expect(paths.filter(p => p === 'Note with Keyword.md')).toHaveLength(1)
+
+		// No file appears twice.
+		expect(paths).toHaveLength(new Set(paths).size)
+	})
+})
+
 describe('Group negation', () => {
 	// These will be brittle as additions to files will cause the results to expand
 	test('Negating a single clause', async () => {

@@ -60,6 +60,51 @@ function addAllToSet<T>(set: Set<T>, items: Iterable<T>) {
 	}
 }
 
+/**
+ * A key that collapses references pointing at the same fundamental content.
+ * Mirrors `areReferencesEquivalent`: whole-file references (and the nodes they
+ * were built from) share a key, while sub-references stay distinct by range and
+ * title. Used to dedupe results so a file that satisfied more than one clause —
+ * e.g. `named X or with X` — appears once instead of feeding a duplicate to
+ * path-keyed lists (which throws `each_key_duplicate` and freezes the renderer).
+ */
+function referenceMergeKey(ref: TreeNodeReference): string {
+	let key = ref.path
+	if (ref.start !== undefined || ref.end !== undefined) {
+		key += `?start=${ref.start}&end=${ref.end}`
+	}
+	if (ref.title) {
+		key += `${key.includes('?') ? '&' : '?'}title=${ref.title}`
+	}
+	return key
+}
+
+/**
+ * Folds the annotations and previews of an equivalent duplicate into the
+ * reference that will actually be shown, so merging never loses the reason a
+ * result matched (a name match and a content match end up on one entry).
+ */
+function mergeReferenceInto(target: TreeNodeReference, source: TreeNodeReference) {
+	if (source.annotations) {
+		if (!target.annotations) target.annotations = []
+		for (const annotation of source.annotations) {
+			const alreadyPresent = target.annotations.some(existing =>
+				existing.start === annotation.start &&
+				existing.end === annotation.end &&
+				existing.target === annotation.target &&
+				existing.data === annotation.data)
+			if (!alreadyPresent) target.annotations.push(annotation)
+		}
+	}
+
+	if (source.preview) {
+		const previews = Array.isArray(source.preview) ? source.preview : [source.preview]
+		for (const preview of previews) {
+			addPreviewToReference(target, preview)
+		}
+	}
+}
+
 function allValidNodes(directory: DirectoryStore) {
 	return directory.allContents(n => {
 		if (n.name.startsWith('.')) return TreePredicateResult.Ignore
@@ -543,12 +588,33 @@ export async function solveQuery(query: Query, interop: QuerySolverInterop): Pro
 		return { query, errors }
 	}
 
-	const items = [...mapIterator(await solveGroup(query, baseSet), item => {
-		if (isNode(item)) return createReference(item)
+	// Dedupe equivalent results as they are collected. A single file can satisfy
+	// several clauses (most commonly `named X or with X`), and each clause hands
+	// back its own reference object, so identity-based set union leaves the file
+	// in the results more than once. Consumers that key a `{#each}` by path then
+	// throw `each_key_duplicate`, which freezes the whole renderer.
+	const deduped = new Map<string, TreeNodeReference>()
+	for (const item of await solveGroup(query, baseSet)) {
+		let reference: TreeNodeReference
+		if (isNode(item)) {
+			reference = createReference(item)
+		}
+		else {
+			cleanReference(item)
+			reference = item
+		}
 
-		cleanReference(item)
-		return item
-	})]
+		const key = referenceMergeKey(reference)
+		const existing = deduped.get(key)
+		if (existing) {
+			mergeReferenceInto(existing, reference)
+		}
+		else {
+			deduped.set(key, reference)
+		}
+	}
+
+	const items = [...deduped.values()]
 
 	return { query, items }
 }
